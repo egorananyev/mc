@@ -339,7 +339,6 @@ def visualize(z_in, azimuth=25., elevation=30.,
 
         energy_xy = np.rot90(np.max(z, axis=2)[:, ::-1], 3)
         fourier_xy = scene.visuals.Image(np.rot90(energy_xy), **opts)
-	print(dir(scene.transforms))
         tr_xy = scene.transforms.MatrixTransform()
         tr_xy.rotate(90, (0, 0, 1))
         tr_xy.translate((N_X/2, -N_Y/2, -N_frame/2))
@@ -563,7 +562,7 @@ def anim_save(z, filename, display=True, vext=vext,
         cmd = 'ffmpeg -i '  + tmpdir + '/frame%03d.png ' + options + filename + vext + verb_
         os.system(cmd)
         # 3) clean up
-        remove_frames(tmpdir, files)
+        remove_frame(tmpdir, files)
 
     if vext == '.webm':
         # 1) create temporary frames

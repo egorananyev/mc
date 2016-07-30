@@ -18,7 +18,6 @@ import shutil
 import pyglet
 allScrs = pyglet.window.get_platform().get_default_display().get_screens()
 print allScrs
-
 # Import the threshold information for the subject:
 
 # Ensure that relative paths start from the same directory as this script
@@ -43,13 +42,11 @@ print filePath
 
 # ====================================================================================
 ## Initial variables.
-# Window boxes and black boxes (specified in degrees of visual angles [dva]):
-windowSize = 5.03 # 4.47
+# Window circles (specified in degrees of visual angles [dva]):
+windowSize = 7.07 # 5.03; calculated as 5/x=sqrt(2)/2 => x=10/sqrt(2)
 windowOffsetX = 5.62 # 5.62 # 6.71
 windowOffsetY = 5.5 # 2.83 # 4.97
 windowThickness = 2
-blackBoxSize = windowSize + 0.5
-blackBoxThickness = 10
 # Timing variables:
 ISIduration = 0.0
 # Condition-related variables
@@ -87,22 +84,18 @@ instrText = visual.TextStim(win=win, ori=0, name='instrText',
 trialClock = core.Clock()
 moveClock = core.Clock()
 maskMoveClock = core.Clock()
-windowLeft = visual.Rect(win=win, name='windowLeft', width=[windowSize, 
-    windowSize][0], height=[windowSize, windowSize][1], ori=0, 
-    pos=[-windowOffsetX, windowOffsetY], lineWidth=windowThickness, 
-    lineColor=u'white', lineColorSpace='rgb', fillColor=None, opacity=1, interpolate=True)
-windowRight = visual.Rect(win=win, name='windowRight', width=[windowSize, 
-    windowSize][0], height=[windowSize, windowSize][1], ori=0, 
-    pos=[windowOffsetX, windowOffsetY], lineWidth=windowThickness, 
-    lineColor=u'white', lineColorSpace='rgb', fillColor=None, opacity=1, interpolate=True)
-blackBoxLeft = visual.Rect(win=win, name='blackBoxLeft', width=[blackBoxSize, 
-    blackBoxSize][0], height=[blackBoxSize, blackBoxSize][1], ori=0, 
-    pos=[-windowOffsetX, windowOffsetY], lineWidth=blackBoxThickness, 
-    lineColor=u'black', lineColorSpace='rgb', fillColor=None, opacity=1, interpolate=True)
-blackBoxRight = visual.Rect(win=win, name='blackBoxRight', width=[blackBoxSize, 
-    blackBoxSize][0], height=[blackBoxSize, blackBoxSize][1], ori=0, 
-    pos=[windowOffsetX, windowOffsetY], lineWidth=blackBoxThickness, 
-    lineColor=u'black', lineColorSpace='rgb', fillColor=None, opacity=1, interpolate=True)
+windowLeft = visual.Polygon(win=win, name='windowLeft', units='deg', edges=36,
+    size=[windowSize, windowSize], ori=0, pos=[-windowOffsetX, windowOffsetY],
+    lineWidth=windowThickness, lineColor=u'white', lineColorSpace='rgb',
+    fillColor=None, opacity=1, interpolate=True)
+windowRight = visual.Polygon(win=win, name='windowRight', units='deg', edges=36,
+    size=[windowSize, windowSize], ori=0, pos=[windowOffsetX, windowOffsetY],
+    lineWidth=windowThickness, lineColor=u'white', lineColorSpace='rgb',
+    fillColor=None, opacity=1, interpolate=True)
+feedbackLeft = visual.Line(win=win, start=[-windowOffsetX+windowSize/2, windowOffsetY],
+    end=[-windowOffsetX+(windowSize/2)+.1, windowOffsetY], lineColor='white')
+feedbackRight = visual.Line(win=win, start=[windowOffsetX+windowSize/2, windowOffsetY],
+    end=[windowOffsetX+(windowSize/2)+.1, windowOffsetY], lineColor='white')
 ISI = core.StaticPeriod(win=win, screenHz=frameRate, name='ISI')
 # setting the edges to 3 (triangle) initially: this will change once ...
 # ... the attributes are read from the configuration file:
@@ -273,7 +266,13 @@ for thisTrial in trials:
     trials.data.add('thisBsfR', thisBsfR)
     # print 'BsfL=' + thisBsfL + '; BsfR=' + thisBsfR
     thisTrialT = thisTrial['trialT']-win.monitorFramePeriod*0.75
-
+    
+    # initiating the grating
+    fx, fy, ft = mc.get_grids(szX, szY, N_frame_total)
+    colorGr = mc.envelope_color(fx, fy, ft)
+    leftGr = 2*mc.rectif(mc.random_cloud(colorGr * mc.envelope_gabor(fx, fy, ft, V_X=+.5))) - 1
+    leftGr = 2*mc.rectif(mc.random_cloud(colorGr * mc.envelope_gabor(fx, fy, ft, V_X=-.5))) - 1
+    
     #------Prepare to start Routine "trial"-------
     t = 0
     trialClock.reset()  # clock 
@@ -293,7 +292,8 @@ for thisTrial in trials:
     trialComponents.append(windowLeft)
     trialComponents.append(windowRight)
     trialComponents.append(ISI)
-    trialComponents.append(target)
+    trialComponents.append(feedbackLeft)
+    trialComponents.append(feedbackRight)
     trialComponents.append(qntxtLeft)
     trialComponents.append(qntxtRight)
     trialComponents.append(key_arrow)
@@ -342,12 +342,15 @@ for thisTrial in trials:
             target.tStart = t  # underestimates by a little under one frame
             target.frameNStart = frameN  # exact frame index
             target.setAutoDraw(True)
-            edgeReached = False # this is only true for the first cycle
+            feedbackLeft.setAutoDraw(True)
+            feedbackRight.setAutoDraw(True)
             moveClock.reset()
         if target.status == STARTED and t<thisTrialT:
             curFrameN = frameN - target.frameNStart
         if target.status == STARTED and t >= thisTrialT:
             target.setAutoDraw(False)
+            feedbackLeft.setAutoDraw(False)
+            feedbackRight.setAutoDraw(False)
         
         # *key_arrow* updates
         if key_arrow.status == NOT_STARTED:
