@@ -16,9 +16,9 @@ import os  # handy system and path functions
 import itertools
 import shutil
 import pyglet
+import MotionClouds as mc
 allScrs = pyglet.window.get_platform().get_default_display().get_screens()
 print allScrs
-# Import the threshold information for the subject:
 
 # Ensure that relative paths start from the same directory as this script
 _thisDir = os.path.dirname(os.path.abspath(__file__))
@@ -34,6 +34,7 @@ expInfo['date'] = datetime.now().strftime('%Y-%m-%d_%H%M')
 expInfo['expName'] = expName
 
 # Data file name stem = absolute path + name; later add .psyexp, .csv, .log, etc
+precompiledDir = '..' + os.sep + 'precompiledMCs'
 dataDir = '..' + os.sep + 'data'
 fileName = '%s_p%s_s%s_%s' %(expName, expInfo['participant'], expInfo['session'],
     expInfo['date'])
@@ -43,7 +44,7 @@ print filePath
 # ====================================================================================
 ## Initial variables.
 # Window circles (specified in degrees of visual angles [dva]):
-windowSize = 7.07 # 5.03; calculated as 5/x=sqrt(2)/2 => x=10/sqrt(2)
+windowSize = 7 # 5.03; calculated as 5/x=sqrt(2)/2 => x=10/sqrt(2)
 windowOffsetX = 5.62 # 5.62 # 6.71
 windowOffsetY = 5.5 # 2.83 # 4.97
 windowThickness = 2
@@ -61,13 +62,11 @@ thisExp = data.ExperimentHandler(name=expName, version='', extraInfo=expInfo,
 
 endExpNow = False  # flag for 'escape' or other condition => quit the exp
 
-# Start Code - component code to be run before the window creation
-
 # Setup the Window
 win = visual.Window(size=(1680, 1050), fullscr=False, screen=1, allowGUI=False, 
     allowStencil=False, monitor='testMonitor', color='black', colorSpace='rgb', 
     blendMode='avg', useFBO=True, units='deg')
-# store frame rate of monitor if we can measure it successfully
+# store frame rate of monitor if we can measure it successfully:
 frameRate=win.getActualFrameRate()
 if frameRate!=None:
     frameDur = 1.0/round(frameRate)
@@ -93,9 +92,9 @@ windowRight = visual.Polygon(win=win, name='windowRight', units='deg', edges=36,
     lineWidth=windowThickness, lineColor=u'white', lineColorSpace='rgb',
     fillColor=None, opacity=1, interpolate=True)
 feedbackLeft = visual.Line(win=win, start=[-windowOffsetX+windowSize/2, windowOffsetY],
-    end=[-windowOffsetX+(windowSize/2)+.1, windowOffsetY], lineColor='white')
+    end=[-windowOffsetX+(windowSize/2)+.5, windowOffsetY], lineColor='white')
 feedbackRight = visual.Line(win=win, start=[windowOffsetX+windowSize/2, windowOffsetY],
-    end=[windowOffsetX+(windowSize/2)+.1, windowOffsetY], lineColor='white')
+    end=[windowOffsetX+(windowSize/2)+.5, windowOffsetY], lineColor='white')
 ISI = core.StaticPeriod(win=win, screenHz=frameRate, name='ISI')
 # setting the edges to 3 (triangle) initially: this will change once ...
 # ... the attributes are read from the configuration file:
@@ -245,7 +244,7 @@ for thisTrial in trials:
     thisSfRx = thisTrial['sfRx']
     trials.data.add('thisSfLx', thisSfLx)
     trials.data.add('thisSfRx', thisSfRx)
-    # print 'sfLx=' + thisSfLx + '; sfRx=' + thisSfRx
+    print 'sfLx=' + str(thisSfLx) + '; sfRx=' + str(thisSfRx)
     thisSfLy = thisTrial['sfLy']
     thisSfRy = thisTrial['sfRy']
     trials.data.add('thisSfLy', thisSfLy)
@@ -264,14 +263,18 @@ for thisTrial in trials:
     thisBsfR = thisTrial['BsfR']
     trials.data.add('thisBsfL', thisBsfL)
     trials.data.add('thisBsfR', thisBsfR)
-    # print 'BsfL=' + thisBsfL + '; BsfR=' + thisBsfR
+    print 'BsfL=' + str(thisBsfL) + '; BsfR=' + str(thisBsfR)
     thisTrialT = thisTrial['trialT']-win.monitorFramePeriod*0.75
     
-    # initiating the grating
-    fx, fy, ft = mc.get_grids(szX, szY, N_frame_total)
-    colorGr = mc.envelope_color(fx, fy, ft)
-    leftGr = 2*mc.rectif(mc.random_cloud(colorGr * mc.envelope_gabor(fx, fy, ft, V_X=+.5))) - 1
-    leftGr = 2*mc.rectif(mc.random_cloud(colorGr * mc.envelope_gabor(fx, fy, ft, V_X=-.5))) - 1
+    # initiating the gratings
+    szX = int(windowSize*33) # assuming 1680x1050, 476x298, dist 53.7
+    szY = szX
+    nFrames = 60
+    # print 'size = ' + str(szX) + ' pixels'
+    # fx, fy, ft = mc.get_grids(szX, szY, nFrames)
+    # grtCol = mc.envelope_color(fx, fy, ft)
+    # grtL = 2*mc.rectif(mc.random_cloud(grtCol * mc.envelope_gabor(fx, fy, ft, sf_0=thisSfLx, B_sf=thisBsfL, V_X=thisVL, B_theta=np.inf))) - 1
+    grtL = np.load(precompiledDir + os.sep + expName + '_' + str(thisVL) + '.npy')
     
     #------Prepare to start Routine "trial"-------
     t = 0
@@ -335,6 +338,13 @@ for thisTrial in trials:
             if 'space' in event.getKeys(keyList=['space']):
                 print 'spacebar pressed - continuing to the next trial'
                 key_pause = True
+
+        # stimulus presentation
+        stimL = visual.GratingStim(win, tex=grtL[:,:,frameN%60], size=(windowSize*33,windowSize*33),
+            units='pix', pos=(-windowOffsetX*33, windowOffsetY*33), interpolate=False, mask='circle',
+            ori=90+thisDirL)
+        stimL.draw()
+        stimL.clearTextures()
 
         # *target* updates
         if target.status == NOT_STARTED:
