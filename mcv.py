@@ -6,6 +6,8 @@ Motion Clouds: Velocity
 """
 
 from __future__ import division  # so that 1/3=0.333 instead of 1/3=0
+# import sys # this was an attempt to make the damn thing work from the terminal
+# sys.path.insert(0, "/usr/local/lib/python2.7/site-packages")
 from psychopy import visual, core, data, event, gui #,logging
 from psychopy.constants import *  # things like STARTED, FINISHED
 import numpy as np # whole numpy lib is available, prepend 'np.'
@@ -34,7 +36,10 @@ expInfo['date'] = datetime.now().strftime('%Y-%m-%d_%H%M')
 expInfo['expName'] = expName
 
 # Data file name stem = absolute path + name; later add .psyexp, .csv, .log, etc
-precompiledDir = '..' + os.sep + 'precompiledMCs'
+precompileMode = 0
+if precompileMode:
+    precompiledDir = '..' + os.sep + 'precompiledMCs'
+grtSize = 256 # size of 256 is 71mm, or 7.2dova
 dataDir = '..' + os.sep + 'data'
 fileName = '%s_p%s_s%s_%s' %(expName, expInfo['participant'], expInfo['session'],
     expInfo['date'])
@@ -44,10 +49,12 @@ print filePath
 # ====================================================================================
 ## Initial variables.
 # Window circles (specified in degrees of visual angles [dva]):
-windowSize = 7 # 5.03; calculated as 5/x=sqrt(2)/2 => x=10/sqrt(2)
+windowSize = 7.2 # 5.03; calculated as 5/x=sqrt(2)/2 => x=10/sqrt(2)
 windowOffsetX = 5.62 # 5.62 # 6.71
 windowOffsetY = 5.5 # 2.83 # 4.97
-windowThickness = 2
+windowThickness = 4
+# 7.2dova = 71mm = 256px; 475x296mm, 563mm viewing dist
+dimMulti = 35.65 # px/dova (adjusted empirically; calc'd: 35.55)
 # Timing variables:
 ISIduration = 0.0
 # Condition-related variables
@@ -267,14 +274,24 @@ for thisTrial in trials:
     thisTrialT = thisTrial['trialT']-win.monitorFramePeriod*0.75
     
     # initiating the gratings
-    szX = int(windowSize*33) # assuming 1680x1050, 476x298, dist 53.7
-    szY = szX
     nFrames = 60
-    # print 'size = ' + str(szX) + ' pixels'
-    # fx, fy, ft = mc.get_grids(szX, szY, nFrames)
-    # grtCol = mc.envelope_color(fx, fy, ft)
-    # grtL = 2*mc.rectif(mc.random_cloud(grtCol * mc.envelope_gabor(fx, fy, ft, sf_0=thisSfLx, B_sf=thisBsfL, V_X=thisVL, B_theta=np.inf))) - 1
-    grtL = np.load(precompiledDir + os.sep + expName + '_' + str(thisVL) + '.npy')
+    if precompileMode:
+        grtL = np.load(precompiledDir + os.sep + expName + '_' + str(thisVL) + 
+            '_' + str(grtSize) + 'px.npy')
+        grtR = np.load(precompiledDir + os.sep + expName + '_' + str(thisVR) +
+            '_' + str(grtSize) + 'px.npy')
+    else:
+        szX = grtSize # int(windowSize*dimMulti)
+        szY = szX
+        # print 'size = ' + str(szX) + ' pixels'
+        fx, fy, ft = mc.get_grids(szX, szY, nFrames)
+        grtCol = mc.envelope_color(fx, fy, ft)
+        grtL = 2*mc.rectif(mc.random_cloud(grtCol * 
+            mc.envelope_gabor(fx, fy, ft, sf_0=thisSfLx, B_sf=thisBsfL,
+            V_X=thisVL, B_theta=np.inf))) - 1
+        grtR = 2*mc.rectif(mc.random_cloud(grtCol * 
+            mc.envelope_gabor(fx, fy, ft, sf_0=thisSfRx, B_sf=thisBsfR,
+            V_X=thisVR, B_theta=np.inf))) - 1
     
     #------Prepare to start Routine "trial"-------
     t = 0
@@ -339,12 +356,17 @@ for thisTrial in trials:
                 print 'spacebar pressed - continuing to the next trial'
                 key_pause = True
 
-        # stimulus presentation
-        stimL = visual.GratingStim(win, tex=grtL[:,:,frameN%60], size=(windowSize*33,windowSize*33),
-            units='pix', pos=(-windowOffsetX*33, windowOffsetY*33), interpolate=False, mask='circle',
-            ori=90+thisDirL)
+        # stimulus presentation:
+        stimL = visual.GratingStim(win, tex=grtL[:,:,frameN%nFrames], 
+            size=(grtSize,grtSize), units='pix', 
+            pos=(-windowOffsetX*dimMulti, windowOffsetY*dimMulti), interpolate=False, 
+            mask='circle', ori=90+thisDirL)
         stimL.draw()
-        stimL.clearTextures()
+        stimR = visual.GratingStim(win, tex=grtR[:,:,frameN%nFrames], 
+            size=(grtSize,grtSize), units='pix', 
+            pos=(windowOffsetX*dimMulti, windowOffsetY*dimMulti), interpolate=False, 
+            mask='circle', ori=90+thisDirR)
+        stimR.draw()
 
         # *target* updates
         if target.status == NOT_STARTED:

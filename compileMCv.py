@@ -35,13 +35,13 @@ conditionsFilePath = 'cond-files'+os.sep+'cond-mcv'+'.csv'
 print conditionsFilePath
 
 # Dimension variables:
-windowSize = 7
-# viewingDist = 53.7
-# monitorWidth = 47.6
-# monitorHeight = 298
+grtSize = 256
+# windowSize = 7
+# viewingDist = 55.3
+# monitorWidth = 47.5
+# monitorHeight = 29.6
 # monitorXpx = 1680
 # monitorYpx = 1050
-dimMulti = 33
 
 # Setting up the conditions:
 condList = data.importConditions(conditionsFilePath)
@@ -51,21 +51,20 @@ for thisCondition in condList:
     # print grtName
     if grtName not in grtList:
         grtList.append(grtName)
-        name_ = precompiledDir + os.sep + grtName
+        name_ = precompiledDir + os.sep + grtName + '_' + str(grtSize) + 'px'
         # grating characteristics:
         thisSf = thisCondition['sfLx']
         thisBsf = thisCondition['BsfL']
         thisV = thisCondition['vL']
-        szX = int(windowSize*dimMulti) # assuming 1680x1050, 476x298, dist 53.7
+        # szX = int(windowSize*dimMulti) # assuming 1680x1050, 476x298, dist 53.7
+        szX = grtSize
         szY = szX
         nFrames = 60 #*thisCondition['trialT']
         # compiling the gratings:
         fx, fy, ft = mc.get_grids(szX, szY, nFrames)
-        print 'starting color for ' + name_
         grtCol = mc.envelope_color(fx, fy, ft)
-        print 'starting envelope for ' + name_
-        z = mc.envelope_gabor(fx, fy, ft, sf_0=thisSf, B_sf=thisBsf, V_X=thisV, B_theta=np.inf)
-        print 'starting cloud for ' + name_
+        z = mc.envelope_gabor(fx, fy, ft, sf_0=thisSf, B_sf=thisBsf,
+            V_X=thisV, B_theta=np.inf)
         zcl = mc.random_cloud(grtCol * z)
         grtL = 2*mc.rectif(zcl) - 1
         # saving the gratings:
