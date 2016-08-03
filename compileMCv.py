@@ -34,30 +34,22 @@ expName = 'mcv' # Experiment name
 conditionsFilePath = 'cond-files'+os.sep+'cond-mcv'+'.csv'
 print conditionsFilePath
 
-# Dimension variables:
-grtSize = 256
-# windowSize = 7
-# viewingDist = 55.3
-# monitorWidth = 47.5
-# monitorHeight = 29.6
-# monitorXpx = 1680
-# monitorYpx = 1050
-
 # Setting up the conditions:
 condList = data.importConditions(conditionsFilePath)
 grtList = []
 for thisCondition in condList:
-    grtName = expName + '_' + str(thisCondition['vL'])
+    grtName = expName + '_' + str(thisCondition['vL']) # name of unique cond
     # print grtName
     if grtName not in grtList:
         grtList.append(grtName)
-        name_ = precompiledDir + os.sep + grtName + '_' + str(grtSize) + 'px'
         # grating characteristics:
+        grtSz = thisCondition['szL']
         thisSf = thisCondition['sfLx']
         thisBsf = thisCondition['BsfL']
         thisV = thisCondition['vL']
-        # szX = int(windowSize*dimMulti) # assuming 1680x1050, 476x298, dist 53.7
-        szX = grtSize
+        name_ = precompiledDir + os.sep + grtName + '_sf' + str(thisSf) + \
+            '_bsf' + str(thisBsf) + '_sz' + str(grtSz)
+        szX = grtSz
         szY = szX
         nFrames = 60 #*thisCondition['trialT']
         # compiling the gratings:
