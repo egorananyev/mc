@@ -64,21 +64,21 @@ dimMulti = 35.65 # px/dova (adjusted empirically; calc'd: 35.55)
 # Timing variables:
 ISIduration = 0.0
 # Condition-related variables
-conditionsFilePath = 'cond-files'+os.sep+'cond-mcv-test'+'.csv'
+conditionsFilePath = 'cond-files'+os.sep+'cond-mcv'+'.csv'
 print conditionsFilePath
 # ====================================================================================
 
 # An ExperimentHandler isn't essential but helps with data saving
-thisExp = data.ExperimentHandler(name=expName, version='', extraInfo=expInfo, 
-    runtimeInfo=None, originPath=None, savePickle=True, saveWideText=True, 
-    dataFileName=filePath)
+# thisExp = data.ExperimentHandler(name=expName, version='', extraInfo=expInfo, 
+#           runtimeInfo=None, originPath=None, savePickle=True, saveWideText=True, 
+#           dataFileName=filePath)
 
 endExpNow = False  # flag for 'escape' or other condition => quit the exp
 
 # Setup the Window
 win = visual.Window(size=(1680, 1050), fullscr=False, screen=1, allowGUI=False, 
-    allowStencil=False, monitor='testMonitor', color='black', colorSpace='rgb', 
-    blendMode='avg', useFBO=True, units='deg')
+      allowStencil=False, monitor='testMonitor', color='black', colorSpace='rgb', 
+      blendMode='avg', useFBO=True, units='deg')
 # store frame rate of monitor if we can measure it successfully:
 frameRate=win.getActualFrameRate()
 if frameRate!=None:
@@ -172,13 +172,12 @@ behResp = []
 # Printing the attributes of the conds:  
 print commonNTrials
 trials = data.TrialHandler(conds, commonNTrials, extraInfo=expInfo)
-trials.data.addDataType('pd180') # predominance of leftward motion
-trials.data.addDataType('pd0') # predominance of rightward motion
-trials.data.addDataType('pd270') # no predominance (transparancy / unclear) at 270
 # Creating a copy of the Conditions file for book-keeping and analyses:
 if not os.path.exists(filePath):
     os.makedirs(filePath)
-shutil.copyfile(conditionsFilePath, filePath + os.sep + os.path.basename(conditionsFilePath))
+shutil.copyfile(conditionsFilePath, filePath + os.sep + 
+                os.path.basename(conditionsFilePath))
+dataFileName = filePath + os.sep + fileName + '.csv'
 
 #-------Start Routine "instructions"-------
 continueRoutine = True
@@ -248,25 +247,16 @@ for thisTrial in trials:
     print '===new=trial==='
     nDone += 1
     print 'trial#' + str(nDone)
-    # trials.data.add('thisTargDir', thisTargDir)
     dirL = thisTrial['dirL']
     dirR = thisTrial['dirR']
-    # trials.data.add('thisDirL', thisDirL)
-    # trials.data.add('thisDirR', thisDirR)
     vL = thisTrial['vL']
     vR = thisTrial['vR']
-    # trials.data.add('thisVL', thisVL)
-    # trials.data.add('thisVR', thisVR)
     print thisTrial['label']
     szL = thisTrial['szL']
     szR = thisTrial['szR']
-    # trials.data.add('thisSzL', thisSzL)
-    # trials.data.add('thisSzR', thisSzR)
     print 'szL=' + str(szL) + '; szR=' + str(szR)
     sfL = thisTrial['sfL']
     sfR = thisTrial['sfR']
-    # trials.data.add('thisSfL', thisSfL)
-    # trials.data.add('thisSfR', thisSfR)
     print 'sfL=' + str(sfL) + '; sfR=' + str(sfR)
     tfL = thisTrial['tfL']
     tfR = thisTrial['tfR']
@@ -274,13 +264,9 @@ for thisTrial in trials:
         tfL = vL * sfL # doesn't matter if sfX or sfY
     if np.isnan(tfR):
         tfR = vR * sfR
-    # trials.data.add('thisTfL', thisTfL)
-    # trials.data.add('thisTfR', thisTfR)
     # print 'tfL=' + thisTfL + '; tfR=' + thisTfR
     BsfL = thisTrial['BsfL']
     BsfR = thisTrial['BsfR']
-    # trials.data.add('thisBsfL', thisBsfL)
-    # trials.data.add('thisBsfR', thisBsfR)
     print 'BsfL=' + str(BsfL) + '; BsfR=' + str(BsfR)
     trialT = thisTrial['trialT'] # -win.monitorFramePeriod*0.75
     nFrames = 60 # number of frames per sequence
@@ -291,23 +277,21 @@ for thisTrial in trials:
     
     # initiating the gratings
     if precompileMode:
-        grtL = np.load(precompiledDir + os.sep + expName + '_' + str(vL) + \
-            '_sf' + str(sfL) + '_bsf' + str(BsfL) + \
-            '_sz' + str(szL) + '.npy')
-        grtR = np.load(precompiledDir + os.sep + expName + '_' + str(vR) + \
-            '_sf' + str(sfR) + '_bsf' + str(BsfR) + \
-            '_sz' + str(szR) + '.npy')
+        grtL = np.load(precompiledDir + os.sep + expName + '_' + str(vL) +
+               '_sf' + str(sfL) + '_bsf' + str(BsfL) + '_sz' + str(szL) + '.npy')
+        grtR = np.load(precompiledDir + os.sep + expName + '_' + str(vR) +
+               '_sf' + str(sfR) + '_bsf' + str(BsfR) + '_sz' + str(szR) + '.npy')
     else:
         fx, fy, ft = mc.get_grids(szL, szL, nFrames)
         grtCol = mc.envelope_color(fx, fy, ft)
         grtL = 2*mc.rectif(mc.random_cloud(grtCol * 
-            mc.envelope_gabor(fx, fy, ft, sf_0=sfL, B_sf=BsfL,
-            V_X=vL, B_theta=np.inf))) - 1
+               mc.envelope_gabor(fx, fy, ft, sf_0=sfL, B_sf=BsfL,
+               V_X=vL, B_theta=np.inf))) - 1
         fx, fy, ft = mc.get_grids(szR, szR, nFrames)
         grtCol = mc.envelope_color(fx, fy, ft)
         grtR = 2*mc.rectif(mc.random_cloud(grtCol * 
-            mc.envelope_gabor(fx, fy, ft, sf_0=sfR, B_sf=BsfR,
-            V_X=vR, B_theta=np.inf))) - 1
+               mc.envelope_gabor(fx, fy, ft, sf_0=sfR, B_sf=BsfR,
+               V_X=vR, B_theta=np.inf))) - 1
     
     #------Prepare to start Routine "trial"-------
     t = 0
@@ -389,6 +373,7 @@ for thisTrial in trials:
             kb_device.clearEvents()
         if key_arrow.status == STARTED and t < trialT:
             # theseKeys = event.getKeys(keyList=['left','right','down'])
+            # print kb_device.getKeys()
             thesePresses = kb_device.getPresses(keys=['left','right','down'])
             # print thesePresses
             theseReleases = kb_device.getReleases(keys=['left','right','down'])
@@ -404,42 +389,44 @@ for thisTrial in trials:
                 if 'left' in thesePresses:
                     print '"left" key is pressed'
                     feedbackLeft.start = [-windowOffsetX-windowSize/2, windowOffsetY]
-                    feedbackLeft.end = [-windowOffsetX-(windowSize/2)-fdbkLen, windowOffsetY]
+                    feedbackLeft.end = [-windowOffsetX-(windowSize/2)-fdbkLen,
+                        windowOffsetY]
                     feedbackRight.start = [windowOffsetX-windowSize/2, windowOffsetY]
-                    feedbackRight.end = [windowOffsetX-(windowSize/2)-fdbkLen, windowOffsetY]
+                    feedbackRight.end = [windowOffsetX-(windowSize/2)-fdbkLen,
+                        windowOffsetY]
                     whichKeyPressed = 'left' # only needed for final key press
                 elif 'right' in thesePresses:
                     print '"right" key is pressed'
                     feedbackLeft.start = [-windowOffsetX+windowSize/2, windowOffsetY]
-                    feedbackLeft.end = [-windowOffsetX+(windowSize/2)+fdbkLen, windowOffsetY]
+                    feedbackLeft.end = [-windowOffsetX+(windowSize/2)+fdbkLen,
+                                         windowOffsetY]
                     feedbackRight.start = [windowOffsetX+windowSize/2, windowOffsetY]
-                    feedbackRight.end = [windowOffsetX+(windowSize/2)+fdbkLen, windowOffsetY]
+                    feedbackRight.end = [windowOffsetX+(windowSize/2)+fdbkLen,
+                                         windowOffsetY]
                     whichKeyPressed = 'right'
                 elif 'down' in thesePresses:
                     print '"down" key is pressed'
                     feedbackLeft.start = [-windowOffsetX, windowOffsetY-windowSize/2]
-                    feedbackLeft.end = [-windowOffsetX, windowOffsetY-(windowSize/2)-fdbkLen]
+                    feedbackLeft.end = [-windowOffsetX,
+                                        windowOffsetY-(windowSize/2)-fdbkLen]
                     feedbackRight.start = [windowOffsetX, windowOffsetY-windowSize/2]
-                    feedbackRight.end = [windowOffsetX, windowOffsetY-(windowSize/2)-fdbkLen]
+                    feedbackRight.end = [windowOffsetX,
+                                         windowOffsetY-(windowSize/2)-fdbkLen]
                     whichKeyPressed = 'down'
                 else:
                     print 'some other key is pressed'
             if len(theseReleases) > 0 and someKeyPressed:
                 feedbackLeft.setAutoDraw(False)
                 feedbackRight.setAutoDraw(False)
+                print '...released after ' + \
+                      str(np.around((frameN-keyPressFN)/60,2)) + 's'
                 someKeyPressed = False
                 if 'left' in theseReleases:
-                    print '...released'
-                    # record the left response
-                    behRespTrial[0,keyPressFN:frameN+1] = 180
+                    behRespTrial[0,keyPressFN:frameN+1] = 180 # left
                 elif 'right' in theseReleases:
-                    print '...released'
-                    # record the right response
-                    behRespTrial[0,keyPressFN:frameN+1] = 0
+                    behRespTrial[0,keyPressFN:frameN+1] = 0 # right
                 elif 'down' in theseReleases:
-                    print '...released'
-                    # record the down keys
-                    behRespTrial[0,keyPressFN:frameN+1] = 270
+                    behRespTrial[0,keyPressFN:frameN+1] = 270 # down
                 else:
                     print 'some other key is released'
                 # print 'no key is currently released'
@@ -461,6 +448,8 @@ for thisTrial in trials:
                         behRespTrial[0,keyPressFN:(trialT*nFrames)] = 270
                     feedbackLeft.setAutoDraw(False)
                     feedbackRight.setAutoDraw(False)
+                    print '...released after ' + \
+                        str(np.around(((trialT*nFrames)-keyPressFN)/60,2)) + 's'
                     print 'recorded post-trial response'
                 # Recording the responses:
                 if len(behResp)>0:
@@ -469,36 +458,36 @@ for thisTrial in trials:
                     behResp = behRespTrial
                 behRespRecorded = True
                 # Computing and recording predominance:
-                nonNa = np.count_nonzero(~np.isnan(behRespTrial))
-                # trials.data.add('pd180', np.count_nonzero(behRespTrial==180) / nonNa) # left
-                # trials.data.add('pd0', np.count_nonzero(behRespTrial==0) / nonNa) # right
-                # trials.data.add('pd270', np.count_nonzero(behRespTrial==270) / nonNa) # down
-                dT = pd.DataFrame({'expName': pd.Series(expName),
-                                'time': pd.Series(expInfo['time']),
-                                'participant': pd.Series(expInfo['participant']),
-                                'session': pd.Series(expInfo['session']),
-                                'dirL': pd.Series(dirL),
-                                'dirR': pd.Series(dirR),
-                                'vL': pd.Series(vL),
-                                'vR': pd.Series(vR),
-                                'szL': pd.Series(szL),
-                                'szR': pd.Series(szR),
-                                'sfL': pd.Series(sfL),
-                                'sfR': pd.Series(sfR),
-                                'tfL': pd.Series(tfL),
-                                'tfR': pd.Series(tfR),
-                                'BsfL': pd.Series(BsfL),
-                                'BsfR': pd.Series(BsfR),
-                                'trialT': pd.Series(trialT),
-                                'pd000': np.count_nonzero(behRespTrial==0) / nonNa,
-                                'pd180': np.count_nonzero(behRespTrial==180) / nonNa,
-                                'pd270': np.count_nonzero(behRespTrial==270) / nonNa
-                                })
+                nNa = np.count_nonzero(np.isnan(behRespTrial))
+                nf000 = np.count_nonzero(behRespTrial==0)
+                nf180 = np.count_nonzero(behRespTrial==180)
+                nf270 = np.count_nonzero(behRespTrial==270)
+                dT = pd.DataFrame({'expName': expName,
+                                   'time': expInfo['time'],
+                                   'participant': expInfo['participant'],
+                                   'session': expInfo['session'],
+                                   'trialN': nDone,
+                                   'dirL': dirL, 'dirR': dirR,
+                                   'vL': vL, 'vR': vR, 'szL': szL, 'szR': szR,
+                                   'sfL': sfL, 'sfR': sfR, 'tfL': tfL, 'tfR': tfR,
+                                   'BsfL': BsfL, 'BsfR': BsfR,
+                                   'trialT': trialT, 'nFrames': nFrames, 'nNa': nNa,
+                                   'nf000': nf000, 'nf180': nf180, 'nf270': nf270,
+                                   'pd000': [nf000 / (trialT * nFrames)],
+                                   'pd180': [nf180 / (trialT * nFrames)],
+                                   'pd270': [nf270 / (trialT * nFrames)] })
+                # to preserve the column order:
+                dataCols = ['expName', 'time', 'participant', 'session', 'trialN',
+                            'dirL', 'dirR', 'vL', 'vR', 'szL', 'szR', 'sfL', 'sfR',
+                            'tfL', 'tfR', 'BsfL', 'BsfR', 'trialT', 'nFrames', 'nNa',
+                            'nf000', 'nf180', 'nf270', 'pd000', 'pd180', 'pd270']
                 if nDone == 1:
                     df = dT
                 else:
                     df = pd.concat([df,dT])
-                pd.DataFrame.to_csv(df)
+                # Recording the data to a csv file:
+                df.to_csv(dataFileName, index=False, cols=dataCols)
+                print 'wrote the data set to ' + dataFileName
             if 'space' in event.getKeys(keyList=['space']):
                 print 'spacebar pressed - continuing to the next trial'
                 key_pause = True
@@ -548,12 +537,12 @@ for thisTrial in trials:
         if hasattr(thisComponent, "setAutoDraw"):
             thisComponent.setAutoDraw(False)
 
-    thisExp.nextEntry()
+    # thisExp.nextEntry()
 
-trialsFilePath = filePath + os.sep + fileName + '_trials'
-trials.saveAsPickle(trialsFilePath)
-trials.saveAsText(trialsFilePath)
-print trials
+# trialsFilePath = filePath + os.sep + fileName + '_trials'
+# trials.saveAsPickle(trialsFilePath)
+# trials.saveAsText(trialsFilePath)
+# print trials
 print "finished the experiment"
 
 win.close()

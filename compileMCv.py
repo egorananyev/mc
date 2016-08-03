@@ -44,7 +44,7 @@ for thisCondition in condList:
         grtList.append(grtName)
         # grating characteristics:
         grtSz = thisCondition['szL']
-        thisSf = thisCondition['sfLx']
+        thisSf = thisCondition['sfL']
         thisBsf = thisCondition['BsfL']
         thisV = thisCondition['vL']
         name_ = precompiledDir + os.sep + grtName + '_sf' + str(thisSf) + \
