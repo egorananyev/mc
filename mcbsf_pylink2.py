@@ -1,7 +1,7 @@
 #!/usr/bin/env python2
 # -*- coding: utf-8 -*-
 """
-Motion Clouds: Velocity
+Motion Clouds: SF Bandwidth (B_sf)
 2016-07-29
 """
 
@@ -26,19 +26,78 @@ kb_device = io.devices.keyboard
 allScrs = pyglet.window.get_platform().get_default_display().get_screens()
 print allScrs
 
+import pylink as pl
+sp = (1680,1050)
+# sp = (256,256)
+cd = 32
+
+eyeLink = ("100.1.1.1")
+
+def eyeTrkInit (sp):
+    el = pl.EyeLink()
+    # sending the screen dimensions to the eye tracker:
+    el.sendCommand("screen_pixel_coords = 0 0 %d %d" %sp)
+    el.sendMessage("DISPLAY_COORDS  0 0 %d %d" %sp)
+    # parser configuration 1 corresponds to high sensitivity to saccades:
+    el.sendCommand("select_parser_configuration 1")
+    # turns off "scenelink camera stuff", i.e., doesn't record the ET video
+    el.sendCommand("scene_camera_gazemap = NO")
+    # converting pupil area to diameter
+    el.sendCommand("pupil_size_diameter = %s"%("YES"))
+    return(el)
+el = eyeTrkInit(sp)
+print 'Finished initializing the eye tracker.'
+
+def eyeTrkCalib (el,sp,cd):
+    # "opens the graphics if the display mode is not set"
+    pl.openGraphics(sp,cd)
+    pl.setCalibrationColors((255,255,255),(177,177,0))
+    pl.setTargetSize(40, 10) 
+    # pl.setTargetSize(int(sp[0]/70), int(sp[1]/300)) 
+    pl.setCalibrationSounds("","","")
+    pl.setDriftCorrectSounds("","off","off")
+    el.doTrackerSetup()
+    pl.closeGraphics()
+    #el.setOfflineMode()
+eyeTrkCalib(el,sp,cd)
+print 'Finished calibration.'
+
+def eyeTrkOpenEDF (dfn,el):
+    el.openDataFile(dfn + '.EDF')
+
+el.openDataFile('test' + '.EDF')
+
+def driftCor(el,sp,cd):
+    blockLabel=psychopy.visual.TextStim(expWin,text="Press the space bar to begin drift                                                     correction", pos=[0,0],
+                                        color="white", bold=True, alignHoriz="center",
+                                        height=0.5)
+    notdone=True
+    while notdone:
+        blockLabel.draw()
+        expWin.flip()
+        if keyState[key.SPACE] == True:
+            eyeTrkCalib(el,sp,cd)
+            expWin.winHandle.activate()
+            keyState[key.SPACE] = False
+            notdone=False
+
+el.sendMessage("TRIALID "+str(1))
+el.startRecording(1,1,1,1)
+
+el.sendMessage("FIX1")
+tFix1On=expClock.getTime()
+
 # EyeLink
-import pylink
 # for real connection to tracker
-eyeLink = pylink.EyeLink("100.1.1.1")
 # or for dummy mode connection
-# dummy_tracker = pylink.EyeLink(None)
+# dummy_tracker = EyeLink(None)
 
 # Ensure that relative paths start from the same directory as this script
 _thisDir = os.path.dirname(os.path.abspath(__file__))
 os.chdir(_thisDir)
 
 # Store info about the experiment session
-expName = 'mcv'  # from the Builder filename that created this script
+expName = 'mcbsf'  # from the Builder filename that created this script
 expInfo = {u'session': u'', u'participant': u''}
 dlg = gui.DlgFromDict(dictionary=expInfo, title=expName) # dialogue box
 if dlg.OK == False: core.quit()  # user pressed cancel
@@ -47,7 +106,7 @@ expInfo['time'] = datetime.now().strftime('%Y-%m-%d_%H%M')
 expInfo['expName'] = expName
 
 # Data file name stem = absolute path + name; later add .psyexp, .csv, .log, etc
-precompileMode = 1
+precompileMode = 0
 if precompileMode:
     precompiledDir = '..' + os.sep + 'precompiledMCs'
 grtSize = 256 # size of 256 is 71mm, or 7.2dova
@@ -56,6 +115,21 @@ fileName = '%s_p%s_s%s_%s' %(expName, expInfo['participant'], expInfo['session']
     expInfo['time'])
 filePath = dataDir + os.sep + fileName
 print filePath
+
+# Additional EyeLink setup:
+edfFileName = filePath + os.sep + fileName + '.edf'
+print edfFileName
+print dir(getEYELINK)
+print dir(getEYELINK())
+getEYELINK.openDataFile(edfFileName)
+# Flush all key presses and set tracker mode to offline:
+pylink.flushGetkeyQueue()
+getEYELINK().setOfflineMode()
+# Send the display dimensions to EyeLink:
+getEYELINK().sendCommand("screen_pixel_coords =  0 0 %d %d" %(SCREENWIDTH - 1, SCREENHEIGHT - 1))
+getEYELINK().sendMessage("DISPLAY_COORDS  0 0 %d %d" %(SCREENWIDTH - 1, SCREENHEIGHT - 1))
+eyelink_ver = getEYELINK().getTrackerVersion()
+print eyelink_ver
 
 # ====================================================================================
 ## Initial variables.

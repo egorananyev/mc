@@ -1,7 +1,7 @@
 #!/usr/bin/env python2
 # -*- coding: utf-8 -*-
 """
-Motion Clouds: Velocity
+Motion Clouds: SF Bandwidth (B_sf)
 2016-07-29
 """
 
@@ -27,18 +27,18 @@ allScrs = pyglet.window.get_platform().get_default_display().get_screens()
 print allScrs
 
 # EyeLink
-import pylink
+from pylink import *
 # for real connection to tracker
-eyeLink = pylink.EyeLink("100.1.1.1")
+eyeLink = ("100.1.1.1")
 # or for dummy mode connection
-# dummy_tracker = pylink.EyeLink(None)
+# dummy_tracker = EyeLink(None)
 
 # Ensure that relative paths start from the same directory as this script
 _thisDir = os.path.dirname(os.path.abspath(__file__))
 os.chdir(_thisDir)
 
 # Store info about the experiment session
-expName = 'mcv'  # from the Builder filename that created this script
+expName = 'mcbsf'  # from the Builder filename that created this script
 expInfo = {u'session': u'', u'participant': u''}
 dlg = gui.DlgFromDict(dictionary=expInfo, title=expName) # dialogue box
 if dlg.OK == False: core.quit()  # user pressed cancel
@@ -47,7 +47,7 @@ expInfo['time'] = datetime.now().strftime('%Y-%m-%d_%H%M')
 expInfo['expName'] = expName
 
 # Data file name stem = absolute path + name; later add .psyexp, .csv, .log, etc
-precompileMode = 1
+precompileMode = 0
 if precompileMode:
     precompiledDir = '..' + os.sep + 'precompiledMCs'
 grtSize = 256 # size of 256 is 71mm, or 7.2dova
@@ -56,6 +56,20 @@ fileName = '%s_p%s_s%s_%s' %(expName, expInfo['participant'], expInfo['session']
     expInfo['time'])
 filePath = dataDir + os.sep + fileName
 print filePath
+
+# Additional EyeLink setup:
+edfFileName = filePath + os.sep + fileName + '.edf'
+el = pylink.EyeLink()
+print edfFileName
+el.openDataFile(edfFileName)
+# Flush all key presses and set tracker mode to offline:
+pylink.flushGetkeyQueue()
+el.setOfflineMode()
+# Send the display dimensions to EyeLink:
+el.sendCommand("screen_pixel_coords =  0 0 %d %d" %(SCREENWIDTH - 1, SCREENHEIGHT - 1))
+el.sendMessage("DISPLAY_COORDS  0 0 %d %d" %(SCREENWIDTH - 1, SCREENHEIGHT - 1))
+eyelink_ver = getEYELINK().getTrackerVersion()
+print eyelink_ver
 
 # ====================================================================================
 ## Initial variables.
