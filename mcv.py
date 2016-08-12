@@ -26,6 +26,13 @@ kb_device = io.devices.keyboard
 allScrs = pyglet.window.get_platform().get_default_display().get_screens()
 print allScrs
 
+# EyeLink
+import pylink
+# for real connection to tracker
+eyeLink = pylink.EyeLink("100.1.1.1")
+# or for dummy mode connection
+# dummy_tracker = pylink.EyeLink(None)
+
 # Ensure that relative paths start from the same directory as this script
 _thisDir = os.path.dirname(os.path.abspath(__file__))
 os.chdir(_thisDir)
@@ -55,8 +62,8 @@ print filePath
 ###### 7.2dova = 71mm = 256px; 475x296mm, 563mm viewing dist ######
 # Window circles (specified in degrees of visual angles [dva]):
 windowSize = 7.2 # 5.03; calculated as 5/x=sqrt(2)/2 => x=10/sqrt(2)
-windowOffsetX = 5.62 # 5.62 # 6.71
-windowOffsetY = 5.5 # 2.83 # 4.97
+windowOffsetX = 5 # 5.62
+windowOffsetY = 3.5 # 5.5
 windowThickness = 4
 fdbkLen = .5 # the length of the feedback line
 fdbkThick = 5 # the tickness of the feedback line
