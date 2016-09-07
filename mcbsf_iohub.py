@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/arch -i386 /usr/bin/python
 # -*- coding: utf-8 -*-
 """
 Motion Clouds: SF Bandwidth (B_sf)
@@ -8,8 +8,10 @@ Motion Clouds: SF Bandwidth (B_sf)
 from __future__ import division  # so that 1/3=0.333 instead of 1/3=0
 # import sys # this was an attempt to make the damn thing work from the terminal
 # sys.path.insert(0, "/usr/local/lib/python2.7/site-packages")
-from psychopy import visual, core, data, event, gui #,logging
+#from psychopy import visual, core, data, event, gui 
+from psychopy import visual, core, data, event
 from psychopy.constants import *  # things like STARTED, FINISHED
+from psychopy.data import getDateStr
 import numpy as np # whole numpy lib is available, prepend 'np.'
 from numpy import sin, cos, tan, log, log10, pi, average, sqrt, std, deg2rad, rad2deg, linspace, asarray
 from numpy.random import random, randint, normal, shuffle
@@ -19,20 +21,27 @@ import itertools
 import shutil
 import pyglet
 import MotionClouds as mc
-from psychopy import iohub
+#from psychopy import iohub
 import pandas as pd
-io = iohub.launchHubServer()
-kb_device = io.devices.keyboard
 allScrs = pyglet.window.get_platform().get_default_display().get_screens()
 print allScrs
 
 # EyeLink
 et = 1 # eye-tracking on or off
 if et:
-    from iohub import EventConstants,ioHubConnection,load,Loader
+    from psychopy.iohub import EventConstants,ioHubConnection,load,Loader
     # Load the specified iohub configuration file converting it to a python dict.
     io_config = load(file('SRR_eyelink_std.yaml','r'), Loader=Loader)
     #eyeLink = ("100.1.1.1")
+    session_info = io_config.get('data_store').get('session_info')
+    session_info.update(code="S_%s"%(getDateStr()))
+    io = ioHubConnection(io_config)
+else:
+    io = psychopy.iohub.launchHubServer()
+kb_device = io.devices.keyboard
+el = io.devices.tracker
+
+el.runSetupProcedure()
 
 # Ensure that relative paths start from the same directory as this script
 _thisDir = os.path.dirname(os.path.abspath(__file__))
@@ -40,9 +49,9 @@ os.chdir(_thisDir)
 
 # Store info about the experiment session
 expName = 'mcbsf'  # from the Builder filename that created this script
-expInfo = {u'session': u'', u'participant': u''}
-dlg = gui.DlgFromDict(dictionary=expInfo, title=expName) # dialogue box
-if dlg.OK == False: core.quit()  # user pressed cancel
+expInfo = {u'session': u'1', u'participant': u'1'}
+#dlg = gui.DlgFromDict(dictionary=expInfo, title=expName) # dialogue box
+#if dlg.OK == False: core.quit()  # user pressed cancel
 timeNow = datetime.now()
 expInfo['time'] = datetime.now().strftime('%Y-%m-%d_%H%M')
 expInfo['expName'] = expName

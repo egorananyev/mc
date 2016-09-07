@@ -2,13 +2,13 @@ monitor_devices:
     - Display:
         name: display
         reporting_unit_type: pix
-        device_number: 0
+        device_number: 1
         physical_dimensions:
-            width: 590
-            height: 340
+            width: 72
+            height: 72
             unit_type: mm
         default_eye_distance:
-            surface_center: 500
+            surface_center: 563
             unit_type: mm
         psychopy_monitor_name: default
 
@@ -34,8 +34,8 @@ monitor_devices:
         network_settings: 100.1.1.1
         default_native_data_file_name: et_data
         runtime_settings:
-            sampling_rate: 1000
-            track_eyes: RIGHT_EYE
+            sampling_rate: 500 #1000
+            track_eyes: BINOCULAR #RIGHT_EYE
             sample_filtering:
                 FILTER_ONLINE: FILTER_OFF
             vog_settings:
@@ -46,7 +46,7 @@ monitor_devices:
             type: NINE_POINTS
             auto_pace: True
             pacing_speed: 1.5
-            screen_background_color: [128,128,128,255]
+            screen_background_color: [128,128,128]
             target_type: CIRCLE_TARGET
             target_attributes:
                 # outer_diameter and inner_diameter are specified in pixels
@@ -54,7 +54,7 @@ monitor_devices:
                 inner_diameter: 6
                 outer_color: [255,255,255]
                 inner_color: [0,0,0]
-        model_name: EYELINK 1000 TOWER
+        model_name: EYELINK 1000 DESKTOP
 
 data_store:
     enable: True
