@@ -1,4 +1,4 @@
-####!/usr/bin/arch -i386 /usr/bin/python
+#!/usr/bin/arch -i386 /usr/bin/python
 # -*- coding: utf-8 -*-
 """
 Motion Clouds: SF Bandwidth (B_sf)
@@ -8,133 +8,53 @@ Motion Clouds: SF Bandwidth (B_sf)
 from __future__ import division  # so that 1/3=0.333 instead of 1/3=0
 # import sys # this was an attempt to make the damn thing work from the terminal
 # sys.path.insert(0, "/usr/local/lib/python2.7/site-packages")
-from psychopy import visual, core, data, event, iohub, gui, iohub
+#from psychopy import visual, core, data, event, gui 
+from psychopy import visual, core, data, event
 from psychopy.constants import *  # things like STARTED, FINISHED
+from psychopy.data import getDateStr
 import numpy as np # whole numpy lib is available, prepend 'np.'
 from numpy import sin, cos, tan, log, log10, pi, average, sqrt, std, deg2rad, rad2deg, linspace, asarray
 from numpy.random import random, randint, normal, shuffle
-from datetime import datetime
 import os  # handy system and path functions
 import itertools
 import shutil
 import pyglet
 import MotionClouds as mc
+#from psychopy import iohub
 import pandas as pd
-io = iohub.launchHubServer()
-kb_device = io.devices.keyboard
 allScrs = pyglet.window.get_platform().get_default_display().get_screens()
-
-# ====================================================================================
-
-import pylink as pl
-# sp = (1680,1050)
-sp = (256,256)
-cd = 32
-
-eyeLink = ("100.1.1.1")
-
-def endCalib(el):
-    # Ends the recording; adds 100ms to catch final events
-    pl.endRealTimeMode()
-    pumpDelay(100)
-    el.stopRecording()
-    while el.getkey():
-        pass
-
-def eyeTrkInit (sp):
-    el = pl.EyeLink()
-    # sending the screen dimensions to the eye tracker:
-    el.sendCommand("screen_pixel_coords = 0 0 %d %d" %sp)
-    el.sendMessage("DISPLAY_COORDS 0 0 %d %d" %sp)
-    # parser configuration 1 corresponds to high sensitivity to saccades:
-    el.sendCommand("select_parser_configuration 1")
-    # turns off "scenelink camera stuff", i.e., doesn't record the ET video
-    el.sendCommand("scene_camera_gazemap = NO")
-    # converting pupil area to diameter
-    el.sendCommand("pupil_size_diameter = %s"%("YES"))
-    return(el)
-el = eyeTrkInit(sp)
-print 'Finished initializing the eye tracker.'
-
-displayInfo = pl.getDisplayInformation()
-print displayInfo.width, displayInfo.height
-print dir(displayInfo)
-
-def eyeTrkCalib (el,sp,cd):
-    # "opens the graphics if the display mode is not set"
-    pl.openGraphics(sp,cd)
-    pl.setCalibrationColors((255,255,255),(0,177,177))
-    pl.setTargetSize(10, 5) 
-    # pl.setTargetSize(int(sp[0]/70), int(sp[1]/300)) 
-    pl.setCalibrationSounds("","","")
-    pl.setDriftCorrectSounds("","off","off")
-    #el.drawCalTarget((128,128))
-    el.doTrackerSetup()
-    pl.closeGraphics()
-    el.setOfflineMode()
-eyeTrkCalib(el,sp,cd)
-print 'Finished calibration.'
-
-def eyeTrkOpenEDF (dfn,el):
-    el.openDataFile(dfn + '.EDF')
-
-el.openDataFile('test' + '.EDF')
-
-# ====================================================================================
-
-# Setup the Window
-win = visual.Window(size=(1680, 1050), fullscr=False, screen=1, allowGUI=False, 
-      allowStencil=False, monitor='testMonitor', color='black', colorSpace='rgb', 
-      blendMode='avg', useFBO=True, units='deg')
-# store frame rate of monitor if we can measure it successfully:
-frameRate=win.getActualFrameRate()
-if frameRate!=None:
-    frameDur = 1.0/round(frameRate)
-else:
-    frameDur = 1.0/60.0 # couldn't get a reliable measure so guess
-
-
-kb_device.clearEvents()
-def driftCor(el,sp,cd):
-    blockLabel=visual.TextStim(win,text="Press the space bar to begin drift                                                     correction", pos=[0,0],
-                                        color="white", bold=True, alignHoriz="center",
-                                        height=0.5)
-    notdone=True
-    while notdone:
-        blockLabel.draw()
-        win.flip()
-        keySpace = kb_device.getPresses(keys=[' ','escape'])
-        if ' ' in keySpace:
-            print 'spacebar pressed'
-            eyeTrkCalib(el,sp,cd)
-            win.winHandle.activate()
-            notdone=False
-        elif 'escape' in keySpace:
-            print 'procedure terminated'
-            notdone=False
-
-el.sendMessage("TRIALID "+str(1))
-el.startRecording(1,1,1,1)
-
-el.sendMessage("FIX1")
-tFix1On=core.Clock() #expClock.getTime()
-
-# EyeLink
-# for real connection to tracker
-# or for dummy mode connection
-# dummy_tracker = EyeLink(None)
+print allScrs
 
 # Ensure that relative paths start from the same directory as this script
 _thisDir = os.path.dirname(os.path.abspath(__file__))
 os.chdir(_thisDir)
 
+# ====================================================================================
+# EyeLink
+et = 1 # eye-tracking on or off
+if et:
+    from psychopy.iohub import EventConstants,ioHubConnection,load,Loader
+    # Load the specified iohub configuration file converting it to a python dict.
+    io_config = load(file('SRR_eyelink_std.yaml','r'), Loader=Loader)
+    #eyeLink = ("100.1.1.1")
+    session_info = io_config.get('data_store').get('session_info')
+    session_info.update(code="S_%s"%(getDateStr()))
+    io = ioHubConnection(io_config)
+else:
+    from psychopy.iohub import launchHubServer
+    io = launchHubServer()
+kb_device = io.devices.keyboard
+
+if et:
+    el = io.devices.tracker
+    el.runSetupProcedure()
+
 # Store info about the experiment session
 expName = 'mcbsf'  # from the Builder filename that created this script
-expInfo = {u'session': u'', u'participant': u''}
-dlg = gui.DlgFromDict(dictionary=expInfo, title=expName) # dialogue box
-if dlg.OK == False: core.quit()  # user pressed cancel
-timeNow = datetime.now()
-expInfo['time'] = datetime.now().strftime('%Y-%m-%d_%H%M')
+expInfo = {u'session': u'1', u'participant': u'1'}
+#dlg = gui.DlgFromDict(dictionary=expInfo, title=expName) # dialogue box
+#if dlg.OK == False: core.quit()  # user pressed cancel
+expInfo['time'] = getDateStr('%Y-%m-%d_%H%M')
 expInfo['expName'] = expName
 
 # Data file name stem = absolute path + name; later add .psyexp, .csv, .log, etc
@@ -148,20 +68,8 @@ fileName = '%s_p%s_s%s_%s' %(expName, expInfo['participant'], expInfo['session']
 filePath = dataDir + os.sep + fileName
 print filePath
 
-## Additional EyeLink setup:
-#edfFileName = filePath + os.sep + fileName + '.edf'
-#print edfFileName
-#print dir(getEYELINK)
-#print dir(getEYELINK())
-#getEYELINK.openDataFile(edfFileName)
-## Flush all key presses and set tracker mode to offline:
-#pylink.flushGetkeyQueue()
-#getEYELINK().setOfflineMode()
-## Send the display dimensions to EyeLink:
-#getEYELINK().sendCommand("screen_pixel_coords =  0 0 %d %d" %(SCREENWIDTH - 1, SCREENHEIGHT - 1))
-#getEYELINK().sendMessage("DISPLAY_COORDS  0 0 %d %d" %(SCREENWIDTH - 1, SCREENHEIGHT - 1))
-#eyelink_ver = getEYELINK().getTrackerVersion()
-#print eyelink_ver
+edfFileName = filePath + os.sep + fileName + '.edf'
+print edfFileName
 
 # ====================================================================================
 ## Initial variables.
@@ -187,6 +95,17 @@ print conditionsFilePath
 #           dataFileName=filePath)
 
 endExpNow = False  # flag for 'escape' or other condition => quit the exp
+
+# Setup the Window
+win = visual.Window(size=(1680, 1050), fullscr=False, screen=1, allowGUI=False, 
+      allowStencil=False, monitor='testMonitor', color='black', colorSpace='rgb', 
+      blendMode='avg', useFBO=True, units='deg')
+# store frame rate of monitor if we can measure it successfully:
+frameRate=win.getActualFrameRate()
+if frameRate!=None:
+    frameDur = 1.0/round(frameRate)
+else:
+    frameDur = 1.0/60.0 # couldn't get a reliable measure so guess
 
 # Initialize components for Routine "instructions"
 instructionsClock = core.Clock()
@@ -241,8 +160,6 @@ pauseTextRight = visual.TextStim(win=win, ori=0, name='pauseTextRight',
 globalClock = core.Clock()  # to track the time since experiment started
 routineTimer = core.CountdownTimer()  # to track time remaining of each (non-slip) routine 
 
-###################
-driftCor(el,sp,cd)
 #------Prepare to start Routine "instructions"-------
 t = 0
 instructionsClock.reset()  # clock 
@@ -316,6 +233,7 @@ while continueRoutine:
             endExpNow = True
         if len(theseKeys) > 0:  # at least one key was pressed
             # a response ends the routine
+            print 'Key pressed. Continuing to the experiment.'
             continueRoutine = False
     
     # check if all components have finished
@@ -365,11 +283,11 @@ for thisTrial in trials:
     print 'sfL=' + str(sfL) + '; sfR=' + str(sfR)
     tfL = thisTrial['tfL']
     tfR = thisTrial['tfR']
-    if np.isnan(tfL):
-    #if tfL != 'NA':
+    #if np.isnan(tfL):
+    if tfL == 'NA':
         tfL = vL * sfL # doesn't matter if sfX or sfY
-    if tfR != 'NA':
     #if np.isnan(tfR):
+    if tfR == 'NA':
         tfR = vR * sfR
     # print 'tfL=' + thisTfL + '; tfR=' + thisTfR
     BsfL = thisTrial['BsfL']
@@ -480,15 +398,14 @@ for thisTrial in trials:
             kb_device.clearEvents()
         if key_arrow.status == STARTED and t < trialT:
             # theseKeys = event.getKeys(keyList=['left','right','down'])
-            # print kb_device.getKeys()
-            thesePresses = kb_device.getPresses(keys=['left','right','down','escape'])
-            # print thesePresses
+            #print kb_device.getKeys()
+            thesePresses = kb_device.getPresses(keys=['left','right','down'])
+            #print thesePresses
             theseReleases = kb_device.getReleases(keys=['left','right','down'])
             # print theseReleases
             # check for quit:
-            if "escape" in thesePresses:
-                endExpNow = True
             if len(thesePresses) > 0:
+                print 'something''s pressed'
                 feedbackLeft.setAutoDraw(True)
                 feedbackRight.setAutoDraw(True)
                 keyPressFN = frameN
