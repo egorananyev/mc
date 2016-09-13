@@ -8,7 +8,7 @@ Motion Clouds: SF Bandwidth (B_sf)
 from __future__ import division  # so that 1/3=0.333 instead of 1/3=0
 # import sys # this was an attempt to make the damn thing work from the terminal
 # sys.path.insert(0, "/usr/local/lib/python2.7/site-packages")
-from psychopy import visual, core, data, event, iohub, gui, iohub
+from psychopy import visual, core, data, event, gui
 from psychopy.constants import *  # things like STARTED, FINISHED
 import numpy as np # whole numpy lib is available, prepend 'np.'
 from numpy import sin, cos, tan, log, log10, pi, average, sqrt, std, deg2rad, rad2deg, linspace, asarray
@@ -20,18 +20,35 @@ import shutil
 import pyglet
 import MotionClouds as mc
 import pandas as pd
-io = iohub.launchHubServer()
-kb_device = io.devices.keyboard
-allScrs = pyglet.window.get_platform().get_default_display().get_screens()
+#allScrs = pyglet.window.get_platform().get_default_display().get_screens()
+
+# Ensure that relative paths start from the same directory as this script
+_thisDir = os.path.dirname(os.path.abspath(__file__))
+os.chdir(_thisDir)
+
 
 # ====================================================================================
 
 import pylink as pl
-# sp = (1680,1050)
-sp = (256,256)
+sp = (1680,1050)
+#sp = (256,256)
+cp = (0.4,0.4) # calibration proportion
+physDims = (72,72)
 cd = 32
 
 eyeLink = ("100.1.1.1")
+
+displayInfo = pl.getDisplayInformation()
+print displayInfo.width, displayInfo.height
+screenCenter = (int(sp[0]/2), int(sp[1]/2))
+calScreenCenter = (screenCenter[0]+176, screenCenter[1]-124)
+calTargDist = 178/2
+calTarg1 = calScreenCenter
+calTarg2 = (int(calScreenCenter[0]-calTargDist), int(calScreenCenter[1]))
+calTarg3 = (int(calScreenCenter[0]+calTargDist), int(calScreenCenter[1]))
+print calTarg1
+print calTarg2
+print calTarg3
 
 def endCalib(el):
     # Ends the recording; adds 100ms to catch final events
@@ -44,21 +61,28 @@ def endCalib(el):
 def eyeTrkInit (sp):
     el = pl.EyeLink()
     # sending the screen dimensions to the eye tracker:
-    el.sendCommand("screen_pixel_coords = 0 0 %d %d" %sp)
-    el.sendMessage("DISPLAY_COORDS 0 0 %d %d" %sp)
+    el.sendCommand('screen_pixel_coords = 0 0 %d %d' %sp)
+    el.sendMessage('DISPLAY_COORDS 0 0 %d %d' %sp)
+    #el.sendCommand('calibration_area_proportion .4 .4')
+    #el.sendCommand('validation_area_proportion .4 .4")
+    el.sendCommand('generate_default_targets = NO')
+    el.sendCommand('calibration_targets = %d,%d %d,%d %d,%d' % (
+                   calTarg1[0], calTarg1[1],
+                   calTarg2[0], calTarg2[1],
+                   calTarg3[0], calTarg3[1]) )
+    el.sendCommand('validation_targets = %d,%d %d,%d %d,%d' % (
+                   calTarg1[0], calTarg1[1],
+                   calTarg2[0], calTarg2[1],
+                   calTarg3[0], calTarg3[1]) )
     # parser configuration 1 corresponds to high sensitivity to saccades:
-    el.sendCommand("select_parser_configuration 1")
+    el.sendCommand('select_parser_configuration 1')
     # turns off "scenelink camera stuff", i.e., doesn't record the ET video
-    el.sendCommand("scene_camera_gazemap = NO")
+    el.sendCommand('scene_camera_gazemap = NO')
     # converting pupil area to diameter
-    el.sendCommand("pupil_size_diameter = %s"%("YES"))
+    el.sendCommand('pupil_size_diameter = %s'%('YES'))
     return(el)
 el = eyeTrkInit(sp)
 print 'Finished initializing the eye tracker.'
-
-displayInfo = pl.getDisplayInformation()
-print displayInfo.width, displayInfo.height
-print dir(displayInfo)
 
 def eyeTrkCalib (el,sp,cd):
     # "opens the graphics if the display mode is not set"
@@ -67,18 +91,25 @@ def eyeTrkCalib (el,sp,cd):
     pl.setTargetSize(10, 5) 
     # pl.setTargetSize(int(sp[0]/70), int(sp[1]/300)) 
     pl.setCalibrationSounds("","","")
+    el.setCalibrationType('H3')
     pl.setDriftCorrectSounds("","off","off")
-    #el.drawCalTarget((128,128))
+    el.disableAutoCalibration()
     el.doTrackerSetup()
+    el.drawCalTarget(calTarg1)
+    el.drawCalTarget(calTarg2)
+    el.drawCalTarget(calTarg3)
     pl.closeGraphics()
     el.setOfflineMode()
-eyeTrkCalib(el,sp,cd)
-print 'Finished calibration.'
 
 def eyeTrkOpenEDF (dfn,el):
     el.openDataFile(dfn + '.EDF')
-
 el.openDataFile('test' + '.EDF')
+print '///set up the EDF file for eye-tracking///'
+
+# ====================================================================================
+from psychopy import iohub
+io = iohub.launchHubServer()
+kb_device = io.devices.keyboard
 
 # ====================================================================================
 
@@ -93,12 +124,10 @@ if frameRate!=None:
 else:
     frameDur = 1.0/60.0 # couldn't get a reliable measure so guess
 
-
 kb_device.clearEvents()
-def driftCor(el,sp,cd):
-    blockLabel=visual.TextStim(win,text="Press the space bar to begin drift                                                     correction", pos=[0,0],
-                                        color="white", bold=True, alignHoriz="center",
-                                        height=0.5)
+def etSetup(el,sp,cd):
+    blockLabel=visual.TextStim(win, text="Press the space bar to begin drift                                                                         correction", pos=[0,0], color="white", bold=True,
+                               alignHoriz="center", height=0.5)
     notdone=True
     while notdone:
         blockLabel.draw()
@@ -113,20 +142,23 @@ def driftCor(el,sp,cd):
             print 'procedure terminated'
             notdone=False
 
-el.sendMessage("TRIALID "+str(1))
-el.startRecording(1,1,1,1)
-
-el.sendMessage("FIX1")
-tFix1On=core.Clock() #expClock.getTime()
+# ====================================================================================
 
 # EyeLink
 # for real connection to tracker
 # or for dummy mode connection
 # dummy_tracker = EyeLink(None)
 
-# Ensure that relative paths start from the same directory as this script
-_thisDir = os.path.dirname(os.path.abspath(__file__))
-os.chdir(_thisDir)
+el.sendMessage("TRIALID "+str(1))
+el.startRecording(1,1,1,1)
+
+el.sendMessage("FIX1")
+#tFix1On=core.Clock() #expClock.getTime()
+###################
+etSetup(el,sp,cd)
+print '///Finished calibration///'
+
+# ====================================================================================
 
 # Store info about the experiment session
 expName = 'mcbsf'  # from the Builder filename that created this script
@@ -169,7 +201,7 @@ print filePath
 # Window circles (specified in degrees of visual angles [dva]):
 windowSize = 7.2 # 5.03; calculated as 5/x=sqrt(2)/2 => x=10/sqrt(2)
 windowOffsetX = 5 # 5.62
-windowOffsetY = 3.5 # 5.5
+windowOffsetY = 3.5 # 5.5 (3.5cm ~= 124px)
 windowThickness = 4
 fdbkLen = .5 # the length of the feedback line
 fdbkThick = 5 # the tickness of the feedback line
@@ -177,7 +209,7 @@ dimMulti = 35.65 # px/dova (adjusted empirically; calc'd: 35.55)
 # Timing variables:
 ISIduration = 0.0
 # Condition-related variables
-conditionsFilePath = 'cond-files'+os.sep+'cond-'+expName+'.csv'
+conditionsFilePath = 'cond-files'+os.sep+'cond-'+expName+'-test.csv' #TEMP
 print conditionsFilePath
 # ====================================================================================
 
@@ -241,8 +273,6 @@ pauseTextRight = visual.TextStim(win=win, ori=0, name='pauseTextRight',
 globalClock = core.Clock()  # to track the time since experiment started
 routineTimer = core.CountdownTimer()  # to track time remaining of each (non-slip) routine 
 
-###################
-driftCor(el,sp,cd)
 #------Prepare to start Routine "instructions"-------
 t = 0
 instructionsClock.reset()  # clock 
