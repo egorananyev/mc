@@ -24,31 +24,48 @@ import pandas as pd
 
 # Ensure that relative paths start from the same directory as this script
 _thisDir = os.path.dirname(os.path.abspath(__file__))
-os.chdir(_thisDir)
-
 
 # ====================================================================================
+## Initial variables.
+###### 7.2dova = 71mm = 256px; 475x296mm, 563mm viewing dist ######
+# Window circles (specified in degrees of visual angles [dva]):
+windowSize = 7.2 # 5.03; calculated as 5/x=sqrt(2)/2 => x=10/sqrt(2)
+windowOffsetX = 6 # 5.62
+windowOffsetY = 3.5 # 5.5 (3.5cm ~= 124px)
+windowThickness = 4
+fdbkLen = .5 # the length of the feedback line
+fdbkThick = 5 # the tickness of the feedback line
+dimMulti = 35.65 # px/dova (adjusted empirically; calc'd: 35.55)
+# Timing variables:
+ISIduration = 0.0
+
+dr = (1680,1050)
+dd = (47.5,29.6)
+def cm2px(cm,dr,dd):
+    px = cm*(dr[0]/dd[0])
+    return px
+def px2cm(px,dr,dd):
+    cm = px/(dr[0]/dd[0])
+    return cm
+
+# ====================================================================================
+# Eye tracking initialization
 
 import pylink as pl
-sp = (1680,1050)
-#sp = (256,256)
-cp = (0.4,0.4) # calibration proportion
-physDims = (72,72)
+#cp = (0.4,0.4) # calibration proportion
 cd = 32
 
 eyeLink = ("100.1.1.1")
 
 displayInfo = pl.getDisplayInformation()
 print displayInfo.width, displayInfo.height
-screenCenter = (int(sp[0]/2), int(sp[1]/2))
-calScreenCenter = (screenCenter[0]+176, screenCenter[1]-124)
-calTargDist = 178/2
+screenCenter = (int(dr[0]/2), int(dr[1]/2))
+calScreenCenter = (int(screenCenter[0]+cm2px(windowOffsetX,dr,dd)),
+                   int(screenCenter[1]-cm2px(windowOffsetY,dr,dd)))
+calTargDist = int(cm2px(windowSize,dr,dd)/3)
 calTarg1 = calScreenCenter
 calTarg2 = (int(calScreenCenter[0]-calTargDist), int(calScreenCenter[1]))
 calTarg3 = (int(calScreenCenter[0]+calTargDist), int(calScreenCenter[1]))
-print calTarg1
-print calTarg2
-print calTarg3
 
 def endCalib(el):
     # Ends the recording; adds 100ms to catch final events
@@ -58,11 +75,11 @@ def endCalib(el):
     while el.getkey():
         pass
 
-def eyeTrkInit (sp):
+def eyeTrkInit (dr):
     el = pl.EyeLink()
     # sending the screen dimensions to the eye tracker:
-    el.sendCommand('screen_pixel_coords = 0 0 %d %d' %sp)
-    el.sendMessage('DISPLAY_COORDS 0 0 %d %d' %sp)
+    el.sendCommand('screen_pixel_coords = 0 0 %d %d' %dr)
+    el.sendMessage('DISPLAY_COORDS 0 0 %d %d' %dr)
     #el.sendCommand('calibration_area_proportion .4 .4')
     #el.sendCommand('validation_area_proportion .4 .4")
     el.sendCommand('generate_default_targets = NO')
@@ -81,15 +98,14 @@ def eyeTrkInit (sp):
     # converting pupil area to diameter
     el.sendCommand('pupil_size_diameter = %s'%('YES'))
     return(el)
-el = eyeTrkInit(sp)
+el = eyeTrkInit(dr)
 print 'Finished initializing the eye tracker.'
 
-def eyeTrkCalib (el,sp,cd):
+def eyeTrkCalib (el,dr,cd):
     # "opens the graphics if the display mode is not set"
-    pl.openGraphics(sp,cd)
+    pl.openGraphics(dr,cd)
     pl.setCalibrationColors((255,255,255),(0,177,177))
     pl.setTargetSize(10, 5) 
-    # pl.setTargetSize(int(sp[0]/70), int(sp[1]/300)) 
     pl.setCalibrationSounds("","","")
     el.setCalibrationType('H3')
     pl.setDriftCorrectSounds("","off","off")
@@ -107,14 +123,8 @@ el.openDataFile('test' + '.EDF')
 print '///set up the EDF file for eye-tracking///'
 
 # ====================================================================================
-from psychopy import iohub
-io = iohub.launchHubServer()
-kb_device = io.devices.keyboard
-
-# ====================================================================================
-
 # Setup the Window
-win = visual.Window(size=(1680, 1050), fullscr=False, screen=1, allowGUI=False, 
+win = visual.Window(size=dr, fullscr=False, screen=0, allowGUI=False, 
       allowStencil=False, monitor='testMonitor', color='black', colorSpace='rgb', 
       blendMode='avg', useFBO=True, units='deg')
 # store frame rate of monitor if we can measure it successfully:
@@ -124,8 +134,16 @@ if frameRate!=None:
 else:
     frameDur = 1.0/60.0 # couldn't get a reliable measure so guess
 
+# ====================================================================================
+from psychopy import iohub
+io = iohub.launchHubServer()
+kb_device = io.devices.keyboard
+
+# ====================================================================================
+# Eye-tracking setup
+
 kb_device.clearEvents()
-def etSetup(el,sp,cd):
+def etSetup(el,dr,cd):
     blockLabel=visual.TextStim(win, text="Press the space bar to begin drift                                                                         correction", pos=[0,0], color="white", bold=True,
                                alignHoriz="center", height=0.5)
     notdone=True
@@ -135,19 +153,12 @@ def etSetup(el,sp,cd):
         keySpace = kb_device.getPresses(keys=[' ','escape'])
         if ' ' in keySpace:
             print 'spacebar pressed'
-            eyeTrkCalib(el,sp,cd)
+            eyeTrkCalib(el,dr,cd)
             win.winHandle.activate()
             notdone=False
         elif 'escape' in keySpace:
             print 'procedure terminated'
             notdone=False
-
-# ====================================================================================
-
-# EyeLink
-# for real connection to tracker
-# or for dummy mode connection
-# dummy_tracker = EyeLink(None)
 
 el.sendMessage("TRIALID "+str(1))
 el.startRecording(1,1,1,1)
@@ -155,7 +166,7 @@ el.startRecording(1,1,1,1)
 el.sendMessage("FIX1")
 #tFix1On=core.Clock() #expClock.getTime()
 ###################
-etSetup(el,sp,cd)
+etSetup(el,dr,cd)
 print '///Finished calibration///'
 
 # ====================================================================================
@@ -180,43 +191,12 @@ fileName = '%s_p%s_s%s_%s' %(expName, expInfo['participant'], expInfo['session']
 filePath = dataDir + os.sep + fileName
 print filePath
 
-## Additional EyeLink setup:
-#edfFileName = filePath + os.sep + fileName + '.edf'
-#print edfFileName
-#print dir(getEYELINK)
-#print dir(getEYELINK())
-#getEYELINK.openDataFile(edfFileName)
-## Flush all key presses and set tracker mode to offline:
-#pylink.flushGetkeyQueue()
-#getEYELINK().setOfflineMode()
-## Send the display dimensions to EyeLink:
-#getEYELINK().sendCommand("screen_pixel_coords =  0 0 %d %d" %(SCREENWIDTH - 1, SCREENHEIGHT - 1))
-#getEYELINK().sendMessage("DISPLAY_COORDS  0 0 %d %d" %(SCREENWIDTH - 1, SCREENHEIGHT - 1))
-#eyelink_ver = getEYELINK().getTrackerVersion()
-#print eyelink_ver
-
-# ====================================================================================
-## Initial variables.
-###### 7.2dova = 71mm = 256px; 475x296mm, 563mm viewing dist ######
-# Window circles (specified in degrees of visual angles [dva]):
-windowSize = 7.2 # 5.03; calculated as 5/x=sqrt(2)/2 => x=10/sqrt(2)
-windowOffsetX = 5 # 5.62
-windowOffsetY = 3.5 # 5.5 (3.5cm ~= 124px)
-windowThickness = 4
-fdbkLen = .5 # the length of the feedback line
-fdbkThick = 5 # the tickness of the feedback line
-dimMulti = 35.65 # px/dova (adjusted empirically; calc'd: 35.55)
-# Timing variables:
-ISIduration = 0.0
 # Condition-related variables
 conditionsFilePath = 'cond-files'+os.sep+'cond-'+expName+'-test.csv' #TEMP
 print conditionsFilePath
-# ====================================================================================
+os.chdir(_thisDir)
 
-# An ExperimentHandler isn't essential but helps with data saving
-# thisExp = data.ExperimentHandler(name=expName, version='', extraInfo=expInfo, 
-#           runtimeInfo=None, originPath=None, savePickle=True, saveWideText=True, 
-#           dataFileName=filePath)
+# ====================================================================================
 
 endExpNow = False  # flag for 'escape' or other condition => quit the exp
 
@@ -395,8 +375,8 @@ for thisTrial in trials:
     print 'sfL=' + str(sfL) + '; sfR=' + str(sfR)
     tfL = thisTrial['tfL']
     tfR = thisTrial['tfR']
-    if np.isnan(tfL):
-    #if tfL != 'NA':
+    if tfL != 'NA':
+    #if np.isnan(tfL):
         tfL = vL * sfL # doesn't matter if sfX or sfY
     if tfR != 'NA':
     #if np.isnan(tfR):
@@ -623,7 +603,7 @@ for thisTrial in trials:
                 else:
                     df = pd.concat([df,dT])
                 # Recording the data to a csv file:
-                df.to_csv(dataFileName, index=False, cols=dataCols)
+                df.to_csv(dataFileName, index=False, columns=dataCols)
                 print 'wrote the data set to ' + dataFileName
             if 'space' in event.getKeys(keyList=['space']):
                 print 'spacebar pressed - continuing to the next trial'
