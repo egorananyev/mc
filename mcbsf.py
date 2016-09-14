@@ -80,8 +80,6 @@ def eyeTrkInit (dr):
     # sending the screen dimensions to the eye tracker:
     el.sendCommand('screen_pixel_coords = 0 0 %d %d' %dr)
     el.sendMessage('DISPLAY_COORDS 0 0 %d %d' %dr)
-    #el.sendCommand('calibration_area_proportion .4 .4')
-    #el.sendCommand('validation_area_proportion .4 .4")
     el.sendCommand('generate_default_targets = NO')
     el.sendCommand('calibration_targets = %d,%d %d,%d %d,%d' % (
                    calTarg1[0], calTarg1[1],
@@ -135,8 +133,8 @@ else:
     frameDur = 1.0/60.0 # couldn't get a reliable measure so guess
 
 # ====================================================================================
-from psychopy import iohub
-io = iohub.launchHubServer()
+from psychopy.iohub import launchHubServer
+io = launchHubServer()
 kb_device = io.devices.keyboard
 
 # ====================================================================================
@@ -155,19 +153,18 @@ def etSetup(el,dr,cd):
             print 'spacebar pressed'
             eyeTrkCalib(el,dr,cd)
             win.winHandle.activate()
+            print '///Finished calibration///'
             notdone=False
         elif 'escape' in keySpace:
             print 'procedure terminated'
             notdone=False
-
-el.sendMessage("TRIALID "+str(1))
-el.startRecording(1,1,1,1)
-
-el.sendMessage("FIX1")
-#tFix1On=core.Clock() #expClock.getTime()
-###################
 etSetup(el,dr,cd)
-print '///Finished calibration///'
+
+def drCor(el,dr,cd):
+    pl.openGraphics(dr,cd)
+    el.doDriftCorrect(calScreenCenter[0], calScreenCenter[1], 1, 0)
+    pl.closeGraphics()
+    print '///Finished drift correction///'
 
 # ====================================================================================
 
@@ -353,6 +350,13 @@ for thisComponent in instructionsComponents:
     if hasattr(thisComponent, "setAutoDraw"):
         thisComponent.setAutoDraw(False)
 
+win.winHandle.minimize()
+win.flip()
+drCor(el,dr,cd)
+win.winHandle.maximize()
+win.flip()
+win.winHandle.activate()
+
 # ====================================================================================
 # Initiating the trial loop
 
@@ -409,7 +413,7 @@ for thisTrial in trials:
         grtR = 2*mc.rectif(mc.random_cloud(grtCol * 
                mc.envelope_gabor(fx, fy, ft, sf_0=sfR, B_sf=BsfR,
                V_X=vR, B_theta=np.inf))) - 1
-    
+
     #------Prepare to start Routine "trial"-------
     t = 0
     trialClock.reset()  # clock 
@@ -417,6 +421,7 @@ for thisTrial in trials:
     tMaskMove = 0
     key_pressed = False
     key_pause = False
+    key_qn = False
     behRespRecorded = False
     someKeyPressed = False # to prevent recording key releases at trial beginning
     windowLeft.lineColor = 'white'
@@ -424,8 +429,6 @@ for thisTrial in trials:
     # update component parameters for each repeat
     key_arrow = event.BuilderKeyResponse()  # create an object of type KeyResponse
     key_arrow.status = NOT_STARTED
-    key_space = event.BuilderKeyResponse()
-    key_space.status = NOT_STARTED
     # keep track of which components have finished
     trialComponents = []
     trialComponents.append(windowLeft)
@@ -436,12 +439,24 @@ for thisTrial in trials:
     trialComponents.append(qntxtLeft)
     trialComponents.append(qntxtRight)
     trialComponents.append(key_arrow)
-    trialComponents.append(key_space)
     trialComponents.append(pauseTextLeft)
     trialComponents.append(pauseTextRight)
     for thisComponent in trialComponents:
         if hasattr(thisComponent, 'status'):
             thisComponent.status = NOT_STARTED
+    
+    # ////////////////////////////////////////////////////////////////////////////////
+    #win.winHandle.minimize()
+    #drCor(el,dr,cd)
+    #win.winHandle.maximize()
+    #win.winHandle.activate()
+    el.sendMessage("TRIALID " + str(nDone))
+    trialStartStr = datetime.now().strftime('%Y-%m-%d_%H%M%S')
+    el.sendMessage("TIMESTAMP " + trialStartStr)
+    el.setOfflineMode()
+    #msecDelay(50) 
+    #error = el.startRecording(1,1,1,1)
+    # ////////////////////////////////////////////////////////////////////////////////
     
     #-------Start Routine "trial"-------
     continueRoutine = True
@@ -457,6 +472,7 @@ for thisTrial in trials:
             windowLeft.tStart = t  # underestimates by a little under one frame
             windowLeft.frameNStart = frameN  # exact frame index
             windowLeft.setAutoDraw(True)
+            windowLeft.status = STARTED
         
         # *windowRight* updates
         if windowRight.status == NOT_STARTED:
@@ -464,6 +480,7 @@ for thisTrial in trials:
             windowRight.tStart = t  # underestimates by a little under one frame
             windowRight.frameNStart = frameN  # exact frame index
             windowRight.setAutoDraw(True)
+            windowRight.status = STARTED
 
         # stimulus presentation:
         if t < trialT:
@@ -496,8 +513,6 @@ for thisTrial in trials:
             theseReleases = kb_device.getReleases(keys=['left','right','down'])
             # print theseReleases
             # check for quit:
-            if "escape" in thesePresses:
-                endExpNow = True
             if len(thesePresses) > 0:
                 feedbackLeft.setAutoDraw(True)
                 feedbackRight.setAutoDraw(True)
@@ -548,8 +563,24 @@ for thisTrial in trials:
                     print 'some other key is released'
                 # print 'no key is currently released'
 
+        # after-trial question about the trial stability
+        if ~key_qn and t > trialT:
+            qntxtLeft.setAutoDraw(True)
+            qntxtRight.setAutoDraw(True)
+            thesePresses = kb_device.getPresses(keys=['1','2','3','4'])
+            if len(thesePresses)>0:
+                if '1' in thesePresses:
+                    qnResp = 1
+                elif '2' in thesePresses:
+                    qnResp = 2
+                elif '3' in thesePresses:
+                    qnResp = 3
+                elif '4' in thesePresses:
+                    qnResp = 4
+                key_qn = True
+
         # pause text and data exporting
-        if ~key_pause and t > trialT:
+        if key_qn and ~key_pause and t > trialT:
             qntxtLeft.setAutoDraw(False)
             qntxtRight.setAutoDraw(False)
             pauseTextLeft.setAutoDraw(True)
@@ -592,12 +623,13 @@ for thisTrial in trials:
                                    'nf000': nf000, 'nf180': nf180, 'nf270': nf270,
                                    'pd000': [nf000 / (trialT * nFrames)],
                                    'pd180': [nf180 / (trialT * nFrames)],
-                                   'pd270': [nf270 / (trialT * nFrames)] })
+                                   'pd270': [nf270 / (trialT * nFrames)],
+                                   'qnResp': qnResp})
                 # to preserve the column order:
                 dataCols = ['expName', 'time', 'participant', 'session', 'trialN',
                             'dirL', 'dirR', 'vL', 'vR', 'szL', 'szR', 'sfL', 'sfR',
                             'tfL', 'tfR', 'BsfL', 'BsfR', 'trialT', 'nFrames', 'nNa',
-                            'nf000', 'nf180', 'nf270', 'pd000', 'pd180', 'pd270']
+                            'nf000', 'nf180', 'nf270', 'pd000', 'pd180', 'pd270', 'qnResp']
                 if nDone == 1:
                     df = dT
                 else:
