@@ -37,7 +37,8 @@ fdbkLen = .5 # the length of the feedback line
 fdbkThick = 5 # the tickness of the feedback line
 dimMulti = 35.65 # px/dova (adjusted empirically; calc'd: 35.55)
 # Timing variables:
-ISIduration = 0.0
+ISIduration = 1
+fixSz = .3
 
 dr = (1680,1050)
 dd = (47.5,29.6)
@@ -115,11 +116,6 @@ def eyeTrkCalib (el,dr,cd):
     pl.closeGraphics()
     el.setOfflineMode()
 
-def eyeTrkOpenEDF (dfn,el):
-    el.openDataFile(dfn + '.EDF')
-el.openDataFile('test' + '.EDF')
-print '///set up the EDF file for eye-tracking///'
-
 # ====================================================================================
 # Setup the Window
 win = visual.Window(size=dr, fullscr=False, screen=0, allowGUI=False, 
@@ -178,7 +174,7 @@ expInfo['time'] = datetime.now().strftime('%Y-%m-%d_%H%M')
 expInfo['expName'] = expName
 
 # Data file name stem = absolute path + name; later add .psyexp, .csv, .log, etc
-precompileMode = 0
+precompileMode = 0 # get the precompiled MCs
 if precompileMode:
     precompiledDir = '..' + os.sep + 'precompiledMCs'
 grtSize = 256 # size of 256 is 71mm, or 7.2dova
@@ -187,6 +183,10 @@ fileName = '%s_p%s_s%s_%s' %(expName, expInfo['participant'], expInfo['session']
     expInfo['time'])
 filePath = dataDir + os.sep + fileName
 print filePath
+
+edfFileName = 'data.edf'
+el.openDataFile(edfFileName)
+print '///set up the EDF file for eye-tracking///'
 
 # Condition-related variables
 conditionsFilePath = 'cond-files'+os.sep+'cond-'+expName+'-test.csv' #TEMP
@@ -221,9 +221,13 @@ feedbackLeft = visual.Line(win=win, start=[-windowOffsetX+windowSize/2, windowOf
 feedbackRight = visual.Line(win=win, start=[windowOffsetX+windowSize/2, windowOffsetY],
     end=[windowOffsetX+(windowSize/2)+fdbkLen, windowOffsetY], lineColor='white',
     lineWidth=fdbkThick)
+fixL = visual.ShapeStim(win, pos=[-windowOffsetX, windowOffsetY],
+                        vertices=((0,-fixSz), (0,fixSz), (0,0), (-fixSz,0), (fixSz,0)),
+                        lineWidth=.2, closeShape=False, lineColor='white')
+fixR = visual.ShapeStim(win, pos=[windowOffsetX, windowOffsetY],
+                        vertices=((0,-fixSz), (0,fixSz), (0,0), (-fixSz,0), (fixSz,0)),
+                        lineWidth=.1, closeShape=False, lineColor='white')
 ISI = core.StaticPeriod(win=win, screenHz=frameRate, name='ISI')
-# setting the edges to 3 (triangle) initially: this will change once ...
-# ... the attributes are read from the configuration file:
 target = visual.Polygon(win=win, name='target',units='deg', edges = 3, size=[0.1, 0.1],
     ori=45, pos=[0, 0], lineWidth=1, lineColor=1.0, lineColorSpace='rgb',
     fillColor=1.0, fillColorSpace='rgb', opacity=1, interpolate=True)
@@ -350,12 +354,12 @@ for thisComponent in instructionsComponents:
     if hasattr(thisComponent, "setAutoDraw"):
         thisComponent.setAutoDraw(False)
 
-win.winHandle.minimize()
-win.flip()
-drCor(el,dr,cd)
-win.winHandle.maximize()
-win.flip()
-win.winHandle.activate()
+#win.winHandle.minimize()
+#win.flip()
+#drCor(el,dr,cd)
+#win.winHandle.maximize()
+#win.flip()
+#win.winHandle.activate()
 
 # ====================================================================================
 # Initiating the trial loop
@@ -433,7 +437,6 @@ for thisTrial in trials:
     trialComponents = []
     trialComponents.append(windowLeft)
     trialComponents.append(windowRight)
-    trialComponents.append(ISI)
     trialComponents.append(feedbackLeft)
     trialComponents.append(feedbackRight)
     trialComponents.append(qntxtLeft)
@@ -441,6 +444,9 @@ for thisTrial in trials:
     trialComponents.append(key_arrow)
     trialComponents.append(pauseTextLeft)
     trialComponents.append(pauseTextRight)
+    trialComponents.append(ISI)
+    trialComponents.append(fixL)
+    trialComponents.append(fixR)
     for thisComponent in trialComponents:
         if hasattr(thisComponent, 'status'):
             thisComponent.status = NOT_STARTED
@@ -454,7 +460,7 @@ for thisTrial in trials:
     trialStartStr = datetime.now().strftime('%Y-%m-%d_%H%M%S')
     el.sendMessage("TIMESTAMP " + trialStartStr)
     el.setOfflineMode()
-    #msecDelay(50) 
+    pl.msecDelay(50) 
     #error = el.startRecording(1,1,1,1)
     # ////////////////////////////////////////////////////////////////////////////////
     
@@ -641,19 +647,22 @@ for thisTrial in trials:
                 print 'spacebar pressed - continuing to the next trial'
                 key_pause = True
 
-        # wait for the presentation time to pass to terminate the trial:
-        if t>=trialT and key_pause:
-            continueRoutine = False
-
         # *ISI* period
-        if ISI.status == NOT_STARTED:
+        if ISI.status == NOT_STARTED and t>=trialT and key_pause:
             # keep track of start time/frame for later
             ISI.tStart = t  # underestimates by a little under one frame
             ISI.frameNStart = frameN  # exact frame index
+            pauseTextLeft.setAutoDraw(False)
+            pauseTextRight.setAutoDraw(False)
+            fixL.setAutoDraw(True)
+            fixR.setAutoDraw(True)
             ISI.start(ISIduration)
         #one frame should pass before updating params and completing
-        elif ISI.status == STARTED: 
+        elif ISI.status == STARTED and t >= (trialT + ISIduration): 
+            fixL.setAutoDraw(False)
+            fixR.setAutoDraw(False)
             ISI.complete() #finish the static period
+            continueRoutine = False
         
         # check if all components have finished
         # a component has requested a forced-end of Routine:
@@ -692,6 +701,17 @@ for thisTrial in trials:
 # trials.saveAsPickle(trialsFilePath)
 # trials.saveAsText(trialsFilePath)
 # print trials
+
+# File transfer and cleanup!
+pl.endRealTimeMode()
+el.setOfflineMode()						  
+pl.msecDelay(600) 
+
+#Close the file and transfer it to Display PC
+el.closeDataFile()
+el.receiveDataFile(edfFileName, edfFileName)
+el.close()
+
 print "finished the experiment"
 
 win.close()
