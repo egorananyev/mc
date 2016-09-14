@@ -68,13 +68,11 @@ calTarg1 = calScreenCenter
 calTarg2 = (int(calScreenCenter[0]-calTargDist), int(calScreenCenter[1]))
 calTarg3 = (int(calScreenCenter[0]+calTargDist), int(calScreenCenter[1]))
 
-def endCalib(el):
+def elEndRec(el):
     # Ends the recording; adds 100ms to catch final events
     pl.endRealTimeMode()
-    pumpDelay(100)
+    pl.pumpDelay(100)
     el.stopRecording()
-    while el.getkey():
-        pass
 
 def eyeTrkInit (dr):
     el = pl.EyeLink()
@@ -186,6 +184,9 @@ print filePath
 
 edfFileName = 'data.edf'
 el.openDataFile(edfFileName)
+el.sendCommand("file_event_filter = LEFT,RIGHT,FIXATION,SACCADE,BLINK,MESSAGE,BUTTON,\
+                INPUT")
+el.sendCommand("file_sample_data  = LEFT,RIGHT,GAZE,AREA,GAZERES,STATUS,HTARGET,INPUT")
 print '///set up the EDF file for eye-tracking///'
 
 # Condition-related variables
@@ -461,7 +462,7 @@ for thisTrial in trials:
     el.sendMessage("TIMESTAMP " + trialStartStr)
     el.setOfflineMode()
     pl.msecDelay(50) 
-    #error = el.startRecording(1,1,1,1)
+    error = el.startRecording(1,1,1,1)
     # ////////////////////////////////////////////////////////////////////////////////
     
     #-------Start Routine "trial"-------
@@ -662,6 +663,8 @@ for thisTrial in trials:
             fixL.setAutoDraw(False)
             fixR.setAutoDraw(False)
             ISI.complete() #finish the static period
+            # stopping eye-tracking recording:
+            elEndRec(el)
             continueRoutine = False
         
         # check if all components have finished
