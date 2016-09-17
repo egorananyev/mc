@@ -386,15 +386,15 @@ for thisTrial in trials:
     tfL = thisTrial['tfL']
     tfR = thisTrial['tfR']
     if tfL != 'NA':
-    #if np.isnan(tfL):
         tfL = vL * sfL # doesn't matter if sfX or sfY
     if tfR != 'NA':
-    #if np.isnan(tfR):
         tfR = vR * sfR
     # print 'tfL=' + thisTfL + '; tfR=' + thisTfR
     BsfL = thisTrial['BsfL']
     BsfR = thisTrial['BsfR']
     print 'BsfL=' + str(BsfL) + '; BsfR=' + str(BsfR)
+    peri = thisTrial['peri']
+    print 'peri=' + str(peri)
     trialT = thisTrial['trialT'] # -win.monitorFramePeriod*0.75
     nFrames = 60 # number of frames per sequence
     
@@ -626,7 +626,7 @@ for thisTrial in trials:
                                    'dirL': dirL, 'dirR': dirR,
                                    'vL': vL, 'vR': vR, 'szL': szL, 'szR': szR,
                                    'sfL': sfL, 'sfR': sfR, 'tfL': tfL, 'tfR': tfR,
-                                   'BsfL': BsfL, 'BsfR': BsfR,
+                                   'BsfL': BsfL, 'BsfR': BsfR, 'peri': peri,
                                    'trialT': trialT, 'nFrames': nFrames, 'nNa': nNa,
                                    'nf000': nf000, 'nf180': nf180, 'nf270': nf270,
                                    'pd000': [nf000 / (trialT * nFrames)],
@@ -636,7 +636,7 @@ for thisTrial in trials:
                 # to preserve the column order:
                 dataCols = ['expName', 'time', 'participant', 'session', 'trialN',
                             'dirL', 'dirR', 'vL', 'vR', 'szL', 'szR', 'sfL', 'sfR',
-                            'tfL', 'tfR', 'BsfL', 'BsfR', 'trialT', 'nFrames', 'nNa',
+                            'tfL', 'tfR', 'BsfL', 'BsfR', 'peri', 'trialT', 'nFrames', 'nNa',
                             'nf000', 'nf180', 'nf270', 'pd000', 'pd180', 'pd270', 'qnResp']
                 if nDone == 1:
                     df = dT
