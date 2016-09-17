@@ -28,7 +28,7 @@ _thisDir = os.path.dirname(os.path.abspath(__file__))
 # ====================================================================================
 ## Initial variables.
 ###### 7.2dova = 71mm = 256px; 475x296mm, 563mm viewing dist ######
-expName = 'mcv'  # from the Builder filename that created this script
+expName = 'mcvfp' # v=velocity, bsf = SF bandwidth, fp = foveal/peripheral
 # Window circles (specified in degrees of visual angles [dva]):
 windowSize = 7.2 # 5.03; calculated as 5/x=sqrt(2)/2 => x=10/sqrt(2)
 windowOffsetX = 6 # 5.62
