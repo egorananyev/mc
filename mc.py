@@ -28,7 +28,8 @@ _thisDir = os.path.dirname(os.path.abspath(__file__))
 # ====================================================================================
 ## Initial variables.
 ###### 7.2dova = 71mm = 256px; 475x296mm, 563mm viewing dist ######
-expName = 'mcvfp' # v=velocity, bsf = SF bandwidth, fp = foveal/peripheral
+et = 0 #TEMP
+expName = 'mcvct' # v=velocity, bsf = SF bandwidth, fp = foveal/peripheral
 # Window circles (specified in degrees of visual angles [dva]):
 windowSize = 7.2 # 5.03; calculated as 5/x=sqrt(2)/2 => x=10/sqrt(2)
 windowOffsetX = 6 # 5.62
@@ -43,6 +44,8 @@ fixSz = .3
 # MCs:
 precompileMode = 1 # get the precompiled MCs
 grtSize = 256 # size of 256 is 71mm, or 7.2dova
+# Ring steps:
+ringSteps = 7
 # Dimensions and converter functions:
 dr = (1680,1050)
 dd = (47.5,29.6)
@@ -56,67 +59,68 @@ def px2cm(px,dr,dd):
 # ====================================================================================
 # Eye tracking initialization
 
-import pylink as pl
-#cp = (0.4,0.4) # calibration proportion
-cd = 32
+if et:
+    import pylink as pl
+    #cp = (0.4,0.4) # calibration proportion
+    cd = 32
 
-eyeLink = ("100.1.1.1")
+    eyeLink = ("100.1.1.1")
 
-displayInfo = pl.getDisplayInformation()
-print displayInfo.width, displayInfo.height
-screenCenter = (int(dr[0]/2), int(dr[1]/2))
-calScreenCenter = (int(screenCenter[0]+cm2px(windowOffsetX,dr,dd)),
-                   int(screenCenter[1]-cm2px(windowOffsetY,dr,dd)))
-calTargDist = int(cm2px(windowSize,dr,dd)/3)
-calTarg1 = calScreenCenter
-calTarg2 = (int(calScreenCenter[0]-calTargDist), int(calScreenCenter[1]))
-calTarg3 = (int(calScreenCenter[0]+calTargDist), int(calScreenCenter[1]))
+    displayInfo = pl.getDisplayInformation()
+    print displayInfo.width, displayInfo.height
+    screenCenter = (int(dr[0]/2), int(dr[1]/2))
+    calScreenCenter = (int(screenCenter[0]+cm2px(windowOffsetX,dr,dd)),
+                    int(screenCenter[1]-cm2px(windowOffsetY,dr,dd)))
+    calTargDist = int(cm2px(windowSize,dr,dd)/3)
+    calTarg1 = calScreenCenter
+    calTarg2 = (int(calScreenCenter[0]-calTargDist), int(calScreenCenter[1]))
+    calTarg3 = (int(calScreenCenter[0]+calTargDist), int(calScreenCenter[1]))
 
-def elEndRec(el):
-    # Ends the recording; adds 100ms to catch final events
-    pl.endRealTimeMode()
-    pl.pumpDelay(100)
-    el.stopRecording()
+    def elEndRec(el):
+        # Ends the recording; adds 100ms to catch final events
+        pl.endRealTimeMode()
+        pl.pumpDelay(100)
+        el.stopRecording()
 
-def eyeTrkInit (dr):
-    el = pl.EyeLink()
-    # sending the screen dimensions to the eye tracker:
-    el.sendCommand('screen_pixel_coords = 0 0 %d %d' %dr)
-    el.sendMessage('DISPLAY_COORDS 0 0 %d %d' %dr)
-    el.sendCommand('generate_default_targets = NO')
-    el.sendCommand('calibration_targets = %d,%d %d,%d %d,%d' % (
-                   calTarg1[0], calTarg1[1],
-                   calTarg2[0], calTarg2[1],
-                   calTarg3[0], calTarg3[1]) )
-    el.sendCommand('validation_targets = %d,%d %d,%d %d,%d' % (
-                   calTarg1[0], calTarg1[1],
-                   calTarg2[0], calTarg2[1],
-                   calTarg3[0], calTarg3[1]) )
-    # parser configuration 1 corresponds to high sensitivity to saccades:
-    el.sendCommand('select_parser_configuration 1')
-    # turns off "scenelink camera stuff", i.e., doesn't record the ET video
-    el.sendCommand('scene_camera_gazemap = NO')
-    # converting pupil area to diameter
-    el.sendCommand('pupil_size_diameter = %s'%('YES'))
-    return(el)
-el = eyeTrkInit(dr)
-print 'Finished initializing the eye tracker.'
+    def eyeTrkInit (dr):
+        el = pl.EyeLink()
+        # sending the screen dimensions to the eye tracker:
+        el.sendCommand('screen_pixel_coords = 0 0 %d %d' %dr)
+        el.sendMessage('DISPLAY_COORDS 0 0 %d %d' %dr)
+        el.sendCommand('generate_default_targets = NO')
+        el.sendCommand('calibration_targets = %d,%d %d,%d %d,%d' % (
+                    calTarg1[0], calTarg1[1],
+                    calTarg2[0], calTarg2[1],
+                    calTarg3[0], calTarg3[1]) )
+        el.sendCommand('validation_targets = %d,%d %d,%d %d,%d' % (
+                    calTarg1[0], calTarg1[1],
+                    calTarg2[0], calTarg2[1],
+                    calTarg3[0], calTarg3[1]) )
+        # parser configuration 1 corresponds to high sensitivity to saccades:
+        el.sendCommand('select_parser_configuration 1')
+        # turns off "scenelink camera stuff", i.e., doesn't record the ET video
+        el.sendCommand('scene_camera_gazemap = NO')
+        # converting pupil area to diameter
+        el.sendCommand('pupil_size_diameter = %s'%('YES'))
+        return(el)
+    el = eyeTrkInit(dr)
+    print 'Finished initializing the eye tracker.'
 
-def eyeTrkCalib (el,dr,cd):
-    # "opens the graphics if the display mode is not set"
-    pl.openGraphics(dr,cd)
-    pl.setCalibrationColors((255,255,255),(0,177,177))
-    pl.setTargetSize(10, 5) 
-    pl.setCalibrationSounds("","","")
-    el.setCalibrationType('H3')
-    pl.setDriftCorrectSounds("","off","off")
-    el.disableAutoCalibration()
-    el.doTrackerSetup()
-    el.drawCalTarget(calTarg1)
-    el.drawCalTarget(calTarg2)
-    el.drawCalTarget(calTarg3)
-    pl.closeGraphics()
-    el.setOfflineMode()
+    def eyeTrkCalib (el,dr,cd):
+        # "opens the graphics if the display mode is not set"
+        pl.openGraphics(dr,cd)
+        pl.setCalibrationColors((255,255,255),(0,177,177))
+        pl.setTargetSize(10, 5) 
+        pl.setCalibrationSounds("","","")
+        el.setCalibrationType('H3')
+        pl.setDriftCorrectSounds("","off","off")
+        el.disableAutoCalibration()
+        el.doTrackerSetup()
+        el.drawCalTarget(calTarg1)
+        el.drawCalTarget(calTarg2)
+        el.drawCalTarget(calTarg3)
+        pl.closeGraphics()
+        el.setOfflineMode()
 
 # ====================================================================================
 # Setup the Window
@@ -138,31 +142,32 @@ kb_device = io.devices.keyboard
 # ====================================================================================
 # Eye-tracking setup
 
-kb_device.clearEvents()
-def etSetup(el,dr,cd):
-    blockLabel=visual.TextStim(win, text="Press the space bar to begin drift                                                                         correction", pos=[0,0], color="white", bold=True,
-                               alignHoriz="center", height=0.5)
-    notdone=True
-    while notdone:
-        blockLabel.draw()
-        win.flip()
-        keySpace = kb_device.getPresses(keys=[' ','escape'])
-        if ' ' in keySpace:
-            print 'spacebar pressed'
-            eyeTrkCalib(el,dr,cd)
-            win.winHandle.activate()
-            print '///Finished calibration///'
-            notdone=False
-        elif 'escape' in keySpace:
-            print 'procedure terminated'
-            notdone=False
-etSetup(el,dr,cd)
+if et:
+    kb_device.clearEvents()
+    def etSetup(el,dr,cd):
+        blockLabel=visual.TextStim(win, text="Press the space bar to begin drift                                                                         correction", pos=[0,0], color="white", bold=True,
+                                alignHoriz="center", height=0.5)
+        notdone=True
+        while notdone:
+            blockLabel.draw()
+            win.flip()
+            keySpace = kb_device.getPresses(keys=[' ','escape'])
+            if ' ' in keySpace:
+                print 'spacebar pressed'
+                eyeTrkCalib(el,dr,cd)
+                win.winHandle.activate()
+                print '///Finished calibration///'
+                notdone=False
+            elif 'escape' in keySpace:
+                print 'procedure terminated'
+                notdone=False
+    etSetup(el,dr,cd)
 
-def drCor(el,dr,cd):
-    pl.openGraphics(dr,cd)
-    el.doDriftCorrect(calScreenCenter[0], calScreenCenter[1], 1, 0)
-    pl.closeGraphics()
-    print '///Finished drift correction///'
+    def drCor(el,dr,cd):
+        pl.openGraphics(dr,cd)
+        el.doDriftCorrect(calScreenCenter[0], calScreenCenter[1], 1, 0)
+        pl.closeGraphics()
+        print '///Finished drift correction///'
 
 # ====================================================================================
 
@@ -183,12 +188,14 @@ fileName = '%s_p%s_s%s_%s' %(expName, expInfo['participant'], expInfo['session']
 filePath = dataDir + os.sep + fileName
 print filePath
 
-edfFileName = 'data.edf'
-el.openDataFile(edfFileName)
-el.sendCommand("file_event_filter = LEFT,RIGHT,FIXATION,SACCADE,BLINK,MESSAGE,BUTTON,\
-                INPUT")
-el.sendCommand("file_sample_data  = LEFT,RIGHT,GAZE,AREA,GAZERES,STATUS,HTARGET,INPUT")
-print '///set up the EDF file for eye-tracking///'
+if et:
+    edfFileName = 'data.edf'
+    el.openDataFile(edfFileName)
+    el.sendCommand("file_event_filter = LEFT,RIGHT,FIXATION,SACCADE,BLINK,\
+                    MESSAGE,BUTTON,INPUT")
+    el.sendCommand("file_sample_data  = LEFT,RIGHT,GAZE,AREA,GAZERES,STATUS,\
+                    HTARGET,INPUT")
+    print '///set up the EDF file for eye-tracking///'
 
 # Condition-related variables
 conditionsFilePath = 'cond-files'+os.sep+'cond-'+expName+'.csv' #TEMP
@@ -242,6 +249,17 @@ qntxtRight = visual.TextStim(win=win, name='qntxtRight',
     text='1=not stable\n2=not very stable\n3=almost stable\n4=completely stable',
     font='Cambria', pos=[windowOffsetX, windowOffsetY], height=.55, wrapWidth=4.5,
     color='white', colorSpace='rgb', opacity=1)
+# rings (for centTask==1):
+ringLeft = visual.Polygon(win=win, name='ringLeft', units='deg', edges=36,
+    size=[windowSize/ringSteps, windowSize/ringSteps], ori=0,
+    pos=[-windowOffsetX, windowOffsetY],
+    lineWidth=windowThickness, lineColor=u'red', lineColorSpace='rgb',
+    fillColor=None, opacity=1, interpolate=True)
+ringRight = visual.Polygon(win=win, name='ringRight', units='deg', edges=36,
+    size=[windowSize/ringSteps, windowSize/ringSteps], ori=0, 
+    pos=[windowOffsetX, windowOffsetY],
+    lineWidth=windowThickness, lineColor=u'red', lineColorSpace='rgb',
+    fillColor=None, opacity=1, interpolate=True)
 # pause text:
 pauseTextLeft = visual.TextStim(win=win, ori=0, name='pauseTextLeft',
     text='Press Spacebar to continue.', font='Cambria', alignHoriz='center',
@@ -295,6 +313,21 @@ if not os.path.exists(filePath):
 shutil.copyfile(conditionsFilePath, filePath + os.sep + 
                 os.path.basename(conditionsFilePath))
 dataFileName = filePath + os.sep + fileName + '.csv'
+
+# ====================================================================================
+# Various functions for use in trials:
+
+# Increase/decrease of the after-trial central motion task:
+def ringSz(ring, ringSzMulti):
+    sz = ring.size[1] + ringSzMulti * windowSize / ringSteps
+    if sz > windowSize:
+        sz = windowSize
+    elif sz <= windowSize/ringSteps:
+        sz = windowSize/ringSteps
+    ring.setSize([sz,sz])
+    return ring
+
+# ====================================================================================
 
 #-------Start Routine "instructions"-------
 continueRoutine = True
@@ -393,6 +426,8 @@ for thisTrial in trials:
     BsfL = thisTrial['BsfL']
     BsfR = thisTrial['BsfR']
     print 'BsfL=' + str(BsfL) + '; BsfR=' + str(BsfR)
+    centTask = thisTrial['centTask']
+    print 'centTask=' + str(centTask)
     peri = thisTrial['peri']
     print 'peri=' + str(peri)
     trialT = thisTrial['trialT'] # -win.monitorFramePeriod*0.75
@@ -425,6 +460,7 @@ for thisTrial in trials:
     trialClock.reset()  # clock 
     frameN = -1
     tMaskMove = 0
+    qnResp = 0
     key_pressed = False
     key_pause = False
     key_qn = False
@@ -443,6 +479,8 @@ for thisTrial in trials:
     trialComponents.append(feedbackRight)
     trialComponents.append(qntxtLeft)
     trialComponents.append(qntxtRight)
+    trialComponents.append(ringLeft)
+    trialComponents.append(ringRight)
     trialComponents.append(key_arrow)
     trialComponents.append(pauseTextLeft)
     trialComponents.append(pauseTextRight)
@@ -458,12 +496,13 @@ for thisTrial in trials:
     #drCor(el,dr,cd)
     #win.winHandle.maximize()
     #win.winHandle.activate()
-    el.sendMessage("TRIALID " + str(nDone))
-    trialStartStr = datetime.now().strftime('%Y-%m-%d_%H%M%S')
-    el.sendMessage("TIMESTAMP " + trialStartStr)
-    el.setOfflineMode()
-    pl.msecDelay(50) 
-    error = el.startRecording(1,1,1,1)
+    if et:
+        el.sendMessage("TRIALID " + str(nDone))
+        trialStartStr = datetime.now().strftime('%Y-%m-%d_%H%M%S')
+        el.sendMessage("TIMESTAMP " + trialStartStr)
+        el.setOfflineMode()
+        pl.msecDelay(50) 
+        error = el.startRecording(1,1,1,1)
     # ////////////////////////////////////////////////////////////////////////////////
     
     #-------Start Routine "trial"-------
@@ -572,7 +611,7 @@ for thisTrial in trials:
                 # print 'no key is currently released'
 
         # after-trial question about the trial stability
-        if ~key_qn and t > trialT:
+        if ~key_qn and t > trialT and centTask == 0:
             qntxtLeft.setAutoDraw(True)
             qntxtRight.setAutoDraw(True)
             thesePresses = kb_device.getPresses(keys=['1','2','3','4'])
@@ -586,6 +625,21 @@ for thisTrial in trials:
                 elif '4' in thesePresses:
                     qnResp = 4
                 key_qn = True
+
+        # after-trial question about the extent of the central motion pattern:
+        if ~key_qn and t > trialT and centTask == 1:
+            ringLeft.setAutoDraw(True)
+            ringRight.setAutoDraw(True)
+            thesePresses = kb_device.getPresses(keys=['up','down',' '])
+            if len(thesePresses)>0:
+                if 'up' in thesePresses:
+                    ringLeft = ringSz(ringLeft, 1) # increase the ring size
+                    ringRight = ringSz(ringRight, 1)
+                elif 'down' in thesePresses:
+                    ringLeft = ringSz(ringLeft, -1) # decrease the ring size
+                    ringRight = ringSz(ringRight, -1)
+                elif ' ' in thesePresses:
+                    key_qn = True
 
         # pause text and data exporting
         if key_qn and ~key_pause and t > trialT:
@@ -632,7 +686,7 @@ for thisTrial in trials:
                                    'pd000': [nf000 / (trialT * nFrames)],
                                    'pd180': [nf180 / (trialT * nFrames)],
                                    'pd270': [nf270 / (trialT * nFrames)],
-                                   'qnResp': qnResp})
+                                   'qnResp': qnResp, 'ringSz': ringLeft.size})
                 # to preserve the column order:
                 dataCols = ['expName', 'time', 'participant', 'session', 'trialN',
                             'dirL', 'dirR', 'vL', 'vR', 'szL', 'szR', 'sfL', 'sfR',
@@ -665,7 +719,8 @@ for thisTrial in trials:
             fixR.setAutoDraw(False)
             ISI.complete() #finish the static period
             # stopping eye-tracking recording:
-            elEndRec(el)
+            if et:
+                elEndRec(el)
             continueRoutine = False
         
         # check if all components have finished
@@ -685,7 +740,8 @@ for thisTrial in trials:
         # check for quit (the Esc key)
         if endExpNow or event.getKeys(keyList=["escape"]):
             print np.shape(behResp)
-            elEndRec(el)
+            if et:
+                elEndRec(el)
             core.quit()
         
         # refresh the screen
@@ -707,15 +763,16 @@ for thisTrial in trials:
 # trials.saveAsText(trialsFilePath)
 # print trials
 
-# File transfer and cleanup!
-pl.endRealTimeMode()
-el.setOfflineMode()						  
-pl.msecDelay(600) 
+if et:
+    # File transfer and cleanup!
+    pl.endRealTimeMode()
+    el.setOfflineMode()						  
+    pl.msecDelay(600) 
 
-#Close the file and transfer it to Display PC
-el.closeDataFile()
-el.receiveDataFile(edfFileName, edfFileName)
-el.close()
+    #Close the file and transfer it to Display PC
+    el.closeDataFile()
+    el.receiveDataFile(edfFileName, edfFileName)
+    el.close()
 
 print "finished the experiment"
 
