@@ -29,7 +29,7 @@ _thisDir = os.path.dirname(os.path.abspath(__file__))
 ## Initial variables.
 ###### 7.2dova = 71mm = 256px; 475x296mm, 563mm viewing dist ######
 et = 0 #TEMP
-expName = 'mcvct' # v=velocity, bsf = SF bandwidth, fp = foveal/peripheral, ct = central task
+expName = 'mcvfp' # v=velocity, bsf = SF bandwidth, fp = foveal/peripheral, ct = central task
 # Window circles (specified in degrees of visual angles [dva]):
 windowSize = 7.2 # 5.03; calculated as 5/x=sqrt(2)/2 => x=10/sqrt(2)
 windowOffsetX = 6 # 5.62
@@ -250,16 +250,40 @@ qntxtRight = visual.TextStim(win=win, name='qntxtRight',
     font='Cambria', pos=[windowOffsetX, windowOffsetY], height=.55, wrapWidth=4.5,
     color='white', colorSpace='rgb', opacity=1)
 # rings (for centTask==1):
+ringSzDef = windowSize/10
 ringLeft = visual.Polygon(win=win, name='ringLeft', units='deg', edges=36,
-    size=[windowSize/ringSteps, windowSize/ringSteps], ori=0,
+    size=[ringSzDef, ringSzDef], ori=0,
     pos=[-windowOffsetX, windowOffsetY],
     lineWidth=windowThickness, lineColor=u'red', lineColorSpace='rgb',
-    fillColor=None, opacity=1, interpolate=True)
+    fillColor=None, opacity=.1, interpolate=True)
 ringRight = visual.Polygon(win=win, name='ringRight', units='deg', edges=36,
-    size=[windowSize/ringSteps, windowSize/ringSteps], ori=0, 
+    size=[ringSzDef, ringSzDef], ori=0, 
     pos=[windowOffsetX, windowOffsetY],
     lineWidth=windowThickness, lineColor=u'red', lineColorSpace='rgb',
-    fillColor=None, opacity=1, interpolate=True)
+    fillColor=None, opacity=.1, interpolate=True)
+# annuli (Out is for central, In is for peripheral)
+annuOut1d = np.concatenate((np.tile(0,1), np.tile(1,1)))
+annuOutL = visual.RadialStim(win=win, tex='sqrXsqr', name='annuOutL', units='deg',
+                             pos=[-windowOffsetX,windowOffsetY],
+                             size=[windowSize,windowSize],
+                             mask=[0,1], color='white', #actually black
+                             radialCycles=0, angularCycles=0)
+annuOutR = visual.RadialStim(win=win, tex='sqrXsqr', name='annuOutR', units='deg',
+                             pos=[windowOffsetX,windowOffsetY],
+                             size=[windowSize,windowSize],
+                             mask=[0,1], color='white',
+                             radialCycles=0, angularCycles=0)
+annuIn1d = np.concatenate((np.tile(1,1), np.tile(0,1))) #, np.tile(1,15)))
+annuInL = visual.RadialStim(win=win, tex='sqrXsqr', name='annuInL', units='deg',
+                             pos=[-windowOffsetX,windowOffsetY],
+                             size=[windowSize,windowSize],
+                             mask=[0,1], color='white',
+                             radialCycles=0, angularCycles=0)
+annuInR = visual.RadialStim(win=win, tex='sqrXsqr', name='annuInR', units='deg',
+                             pos=[windowOffsetX,windowOffsetY],
+                             size=[windowSize,windowSize],
+                             mask=[0,1], color='white',
+                             radialCycles=0, angularCycles=0)
 # pause text:
 pauseTextLeft = visual.TextStim(win=win, ori=0, name='pauseTextLeft',
     text='Press Spacebar to continue.', font='Cambria', alignHoriz='center',
@@ -322,8 +346,8 @@ def ringSz(ring, ringSzMulti):
     sz = ring.size[1] + ringSzMulti * windowSize / ringSteps
     if sz > windowSize:
         sz = windowSize
-    elif sz <= windowSize/ringSteps:
-        sz = windowSize/ringSteps
+    elif sz < windowSize/ringSteps:
+        sz = ringSzDef
     ring.setSize([sz,sz])
     return ring
 
@@ -434,7 +458,7 @@ for thisTrial in trials:
     nFrames = 60 # number of frames per sequence
     
     # Creating an empty matrix for keeping the behavioural responses:
-    behRespTrial = np.empty([1, trialT*nFrames]) 
+    behRespTrial = np.empty([1, trialT*nFrames*3]) 
     behRespTrial[:] = np.NAN
     
     # initiating the gratings
@@ -461,6 +485,8 @@ for thisTrial in trials:
     frameN = -1
     tMaskMove = 0
     qnResp = 0
+    ringLeft.setSize([ringSzDef,ringSzDef])
+    ringRight.setSize([ringSzDef,ringSzDef])
     key_pressed = False
     key_pause = False
     key_qn = False
@@ -541,6 +567,12 @@ for thisTrial in trials:
                 pos=(windowOffsetX*dimMulti, windowOffsetY*dimMulti),
                 interpolate=False, mask='circle', ori=90+dirR)
             stimR.draw()
+            if centTask==2 and peri:
+                annuInL.draw()
+                annuInR.draw()
+            else:
+                annuOutL.draw()
+                annuOutR.draw()
         
         # *key_arrow* updates
         if key_arrow.status == NOT_STARTED:
@@ -552,7 +584,7 @@ for thisTrial in trials:
             key_arrow.clock.reset()  # now t=0
             event.clearEvents(eventType='keyboard')
             kb_device.clearEvents()
-        if key_arrow.status == STARTED and t < trialT:
+        if key_arrow.status == STARTED: #and t < trialT:
             # theseKeys = event.getKeys(keyList=['left','right','down'])
             # print kb_device.getKeys()
             thesePresses = kb_device.getPresses(keys=['left','right','down','escape'])
@@ -624,27 +656,29 @@ for thisTrial in trials:
                     qnResp = 3
                 elif '4' in thesePresses:
                     qnResp = 4
+                qntxtLeft.setAutoDraw(False)
+                qntxtRight.setAutoDraw(False)
                 key_qn = True
 
         # after-trial question about the extent of the central motion pattern:
         if ~key_qn and t > trialT and centTask == 1:
             ringLeft.setAutoDraw(True)
             ringRight.setAutoDraw(True)
-            thesePresses = kb_device.getPresses(keys=['up','down',' '])
+            thesePresses = kb_device.getPresses(keys=['z','x',' '])
             if len(thesePresses)>0:
-                if 'up' in thesePresses:
+                if 'z' in thesePresses:
                     ringLeft = ringSz(ringLeft, 1) # increase the ring size
                     ringRight = ringSz(ringRight, 1)
-                elif 'down' in thesePresses:
+                elif 'x' in thesePresses:
                     ringLeft = ringSz(ringLeft, -1) # decrease the ring size
                     ringRight = ringSz(ringRight, -1)
                 elif ' ' in thesePresses:
+                    ringLeft.setAutoDraw(False)
+                    ringRight.setAutoDraw(False)
                     key_qn = True
 
         # pause text and data exporting
         if key_qn and ~key_pause and t > trialT:
-            qntxtLeft.setAutoDraw(False)
-            qntxtRight.setAutoDraw(False)
             pauseTextLeft.setAutoDraw(True)
             pauseTextRight.setAutoDraw(True)
             if not behRespRecorded: # a flag for data recording
@@ -686,7 +720,7 @@ for thisTrial in trials:
                                    'pd000': [nf000 / (trialT * nFrames)],
                                    'pd180': [nf180 / (trialT * nFrames)],
                                    'pd270': [nf270 / (trialT * nFrames)],
-                                   'qnResp': qnResp, 'ringSz': ringLeft.size})
+                                   'qnResp': qnResp, 'ringSz': ringLeft.size[0]})
                 # to preserve the column order:
                 dataCols = ['expName', 'time', 'participant', 'session', 'trialN',
                             'dirL', 'dirR', 'vL', 'vR', 'szL', 'szR', 'sfL', 'sfR',
@@ -701,6 +735,8 @@ for thisTrial in trials:
                 print 'wrote the data set to ' + dataFileName
             if 'space' in event.getKeys(keyList=['space']):
                 print 'spacebar pressed - continuing to the next trial'
+                pauseTextLeft.setAutoDraw(False)
+                pauseTextRight.setAutoDraw(False)
                 key_pause = True
 
         # *ISI* period
@@ -708,8 +744,6 @@ for thisTrial in trials:
             # keep track of start time/frame for later
             ISI.tStart = t  # underestimates by a little under one frame
             ISI.frameNStart = frameN  # exact frame index
-            pauseTextLeft.setAutoDraw(False)
-            pauseTextRight.setAutoDraw(False)
             fixL.setAutoDraw(True)
             fixR.setAutoDraw(True)
             ISI.start(ISIduration)
