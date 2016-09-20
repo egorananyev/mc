@@ -6,13 +6,9 @@ Motion Clouds: SF Bandwidth (B_sf)
 """
 
 from __future__ import division  # so that 1/3=0.333 instead of 1/3=0
-# import sys # this was an attempt to make the damn thing work from the terminal
-# sys.path.insert(0, "/usr/local/lib/python2.7/site-packages")
 from psychopy import visual, core, data, event, gui
 from psychopy.constants import *  # things like STARTED, FINISHED
-import numpy as np # whole numpy lib is available, prepend 'np.'
-from numpy import sin, cos, tan, log, log10, pi, average, sqrt, std, deg2rad, rad2deg, linspace, asarray
-from numpy.random import random, randint, normal, shuffle
+import numpy as np
 from datetime import datetime
 import os  # handy system and path functions
 import itertools
@@ -20,24 +16,21 @@ import shutil
 import pyglet
 import MotionClouds as mc
 import pandas as pd
-#allScrs = pyglet.window.get_platform().get_default_display().get_screens()
 
 # Ensure that relative paths start from the same directory as this script
 _thisDir = os.path.dirname(os.path.abspath(__file__))
 
 # ====================================================================================
 ## Initial variables.
-###### 7.2dova = 71mm = 256px; 475x296mm, 563mm viewing dist ######
-et = 0 #TEMP
+et = 0
 expName = 'mcvfp' # v=velocity, bsf = SF bandwidth, fp = foveal/peripheral, ct = central task
 # Window circles (specified in degrees of visual angles [dva]):
-windowSize = 7.2 # 5.03; calculated as 5/x=sqrt(2)/2 => x=10/sqrt(2)
-windowOffsetX = 6 # 5.62
-windowOffsetY = 3.5 # 5.5 (3.5cm ~= 124px)
-windowThickness = 4
-fdbkLen = .5 # the length of the feedback line
-fdbkThick = 5 # the tickness of the feedback line
-dimMulti = 35.65 # px/dova (adjusted empirically; calc'd: 35.55)
+winSz = 7.2 # 5.03; calculated as 5/x=sqrt(2)/2 => x=10/sqrt(2)
+winOffX = 6 # 5.62
+winOffY = 3.5 # 5.5 (3.5cm ~= 124px)
+winThickness = 4 # in pixels
+fdbkLen = 1 # the length of the feedback line, in degrees
+fdbkThick = 5 # the tickness of the feedback line, in pixels
 # Timing variables:
 ISIduration = 1
 fixSz = .3
@@ -46,15 +39,47 @@ precompileMode = 1 # get the precompiled MCs
 grtSize = 256 # size of 256 is 71mm, or 7.2dova
 # Ring steps:
 ringSteps = 7
-# Dimensions and converter functions:
-dr = (1680,1050)
-dd = (47.5,29.6)
-def cm2px(cm,dr,dd):
-    px = cm*(dr[0]/dd[0])
+# Dimensions:
+###### 7.2dova = 71mm = 256px; 475x296mm, 563mm viewing dist ######
+#dr = (1680,1050) # display resolution in px
+dr = (1366,768)
+#dd = (47.5,29.6) # display dimensions in cm
+dd = (29.5,16.6)
+ds = 49.5 # distance to screen in cm
+
+# ====================================================================================
+# Converter functions:
+def cm2px(cm,dr=dr,dd=dd):
+    px = int(cm*(dr[0]/dd[0]))
     return px
-def px2cm(px,dr,dd):
+def px2cm(px,dr=dr,dd=dd):
     cm = px/(dr[0]/dd[0])
     return cm
+def cm2dg(cm,ds=ds):
+    dg = np.degrees(np.arctan(cm/ds))
+    return dg
+def dg2cm(dg,ds=ds):
+    cm = ds*np.tan(np.radians(dg))
+    return cm
+def px2dg(px,cm2dg=cm2dg,px2cm=px2cm):
+    dg = cm2dg(px2cm(px))
+    return dg
+def dg2px(dg,cm2px=cm2px,dg2cm=dg2cm):
+    px = int(cm2px(dg2cm(dg)))
+    return px
+
+# ====================================================================================
+# Converting win dimensions to pixels
+winSz = dg2px(winSz)
+winOffX = dg2px(winOffX)
+winOffY = dg2px(winOffY)
+fdbkLen = dg2px(fdbkLen)
+posCentL = [-winOffX, winOffY]
+posCentR = [winOffX, winOffY]
+print winSz 
+print posCentL 
+print posCentR 
+print fdbkLen 
 
 # ====================================================================================
 # Eye tracking initialization
@@ -69,9 +94,9 @@ if et:
     displayInfo = pl.getDisplayInformation()
     print displayInfo.width, displayInfo.height
     screenCenter = (int(dr[0]/2), int(dr[1]/2))
-    calScreenCenter = (int(screenCenter[0]+cm2px(windowOffsetX,dr,dd)),
-                    int(screenCenter[1]-cm2px(windowOffsetY,dr,dd)))
-    calTargDist = int(cm2px(windowSize,dr,dd)/3)
+    calScreenCenter = (int(screenCenter[0]+dg2px(winOffX)),
+                    int(screenCenter[1]-dg2px(winOffY)))
+    calTargDist = int(winSz/3)
     calTarg1 = calScreenCenter
     calTarg2 = (int(calScreenCenter[0]-calTargDist), int(calScreenCenter[1]))
     calTarg3 = (int(calScreenCenter[0]+calTargDist), int(calScreenCenter[1]))
@@ -89,13 +114,13 @@ if et:
         el.sendMessage('DISPLAY_COORDS 0 0 %d %d' %dr)
         el.sendCommand('generate_default_targets = NO')
         el.sendCommand('calibration_targets = %d,%d %d,%d %d,%d' % (
-                    calTarg1[0], calTarg1[1],
-                    calTarg2[0], calTarg2[1],
-                    calTarg3[0], calTarg3[1]) )
+                       calTarg1[0], calTarg1[1],
+                       calTarg2[0], calTarg2[1],
+                       calTarg3[0], calTarg3[1]) )
         el.sendCommand('validation_targets = %d,%d %d,%d %d,%d' % (
-                    calTarg1[0], calTarg1[1],
-                    calTarg2[0], calTarg2[1],
-                    calTarg3[0], calTarg3[1]) )
+                       calTarg1[0], calTarg1[1],
+                       calTarg2[0], calTarg2[1],
+                       calTarg3[0], calTarg3[1]) )
         # parser configuration 1 corresponds to high sensitivity to saccades:
         el.sendCommand('select_parser_configuration 1')
         # turns off "scenelink camera stuff", i.e., doesn't record the ET video
@@ -124,9 +149,8 @@ if et:
 
 # ====================================================================================
 # Setup the Window
-win = visual.Window(size=dr, fullscr=False, screen=0, allowGUI=False, 
-      allowStencil=False, monitor='testMonitor', color='black', colorSpace='rgb', 
-      blendMode='avg', useFBO=True, units='deg')
+win = visual.Window(size=dr, fullscr=True, screen=0, allowGUI=False, 
+      allowStencil=False, color='black', blendMode='avg', useFBO=True, units='pix')
 # store frame rate of monitor if we can measure it successfully:
 frameRate=win.getActualFrameRate()
 if frameRate!=None:
@@ -145,8 +169,9 @@ kb_device = io.devices.keyboard
 if et:
     kb_device.clearEvents()
     def etSetup(el,dr,cd):
-        blockLabel=visual.TextStim(win, text="Press the space bar to begin drift                                                                         correction", pos=[0,0], color="white", bold=True,
-                                alignHoriz="center", height=0.5)
+        blockLabel=visual.TextStim(win, text="Press spacebar", pos=posCentR,
+                                   color="white", bold=True, alignHoriz="center",
+                                   height=0.5)
         notdone=True
         while notdone:
             blockLabel.draw()
@@ -208,91 +233,66 @@ endExpNow = False  # flag for 'escape' or other condition => quit the exp
 
 # Initialize components for Routine "instructions"
 instructionsClock = core.Clock()
-instrText = visual.TextStim(win=win, ori=0, name='instrText',
-    text='Press any key to start', font='Cambria', pos=[0, 0], height=1, wrapWidth=10,
-    color='white', colorSpace='rgb', opacity=1)
+instrText = visual.TextStim(win, text='Press any key to start', font='Cambria',
+                            pos=posCentL, height=1, wrapWidth=10, color='white')
 
 # Initialize components for Routine "trial"
 trialClock = core.Clock()
 moveClock = core.Clock()
 maskMoveClock = core.Clock()
-windowLeft = visual.Polygon(win=win, name='windowLeft', units='deg', edges=36,
-    size=[windowSize, windowSize], ori=0, pos=[-windowOffsetX, windowOffsetY],
-    lineWidth=windowThickness, lineColor=u'white', lineColorSpace='rgb',
-    fillColor=None, opacity=1, interpolate=True)
-windowRight = visual.Polygon(win=win, name='windowRight', units='deg', edges=36,
-    size=[windowSize, windowSize], ori=0, pos=[windowOffsetX, windowOffsetY],
-    lineWidth=windowThickness, lineColor=u'white', lineColorSpace='rgb',
-    fillColor=None, opacity=1, interpolate=True)
-feedbackLeft = visual.Line(win=win, start=[-windowOffsetX+windowSize/2, windowOffsetY],
-    end=[-windowOffsetX+(windowSize/2)+fdbkLen, windowOffsetY], lineColor='white',
-    lineWidth=fdbkThick)
-feedbackRight = visual.Line(win=win, start=[windowOffsetX+windowSize/2, windowOffsetY],
-    end=[windowOffsetX+(windowSize/2)+fdbkLen, windowOffsetY], lineColor='white',
-    lineWidth=fdbkThick)
-fixL = visual.ShapeStim(win, pos=[-windowOffsetX, windowOffsetY],
-                        vertices=((0,-fixSz), (0,fixSz), (0,0), (-fixSz,0), (fixSz,0)),
-                        lineWidth=.2, closeShape=False, lineColor='white')
-fixR = visual.ShapeStim(win, pos=[windowOffsetX, windowOffsetY],
-                        vertices=((0,-fixSz), (0,fixSz), (0,0), (-fixSz,0), (fixSz,0)),
-                        lineWidth=.1, closeShape=False, lineColor='white')
 ISI = core.StaticPeriod(win=win, screenHz=frameRate, name='ISI')
-target = visual.Polygon(win=win, name='target',units='deg', edges = 3, size=[0.1, 0.1],
-    ori=45, pos=[0, 0], lineWidth=1, lineColor=1.0, lineColorSpace='rgb',
-    fillColor=1.0, fillColorSpace='rgb', opacity=1, interpolate=True)
+# circular windows:
+winL = visual.Polygon(win, edges=36, size=[winSz, winSz], pos=posCentL,
+                      lineWidth=winThickness, lineColor=u'white')
+winR = visual.Polygon(win, edges=36, size=[winSz, winSz], pos=posCentR,
+                      lineWidth=winThickness, lineColor=u'white')
+# direction feedback:
+dirFdbkL = visual.Line(win, start=[0,0], end=[0,0], lineColor='white',
+                        lineWidth=fdbkThick)
+dirFdbkR = visual.Line(win, start=[0,0], end=[0,0], lineColor='white',
+                        lineWidth=fdbkThick)
+# fixation:
+fixL = visual.ShapeStim(win, pos=posCentL, vertices=((0,-fixSz), (0,fixSz), (0,0), 
+                                                     (-fixSz,0), (fixSz,0)),
+                        lineWidth=.2, closeShape=False, lineColor='white')
+fixR = visual.ShapeStim(win, pos=posCentR, vertices=((0,-fixSz), (0,fixSz), (0,0), 
+                                                     (-fixSz,0), (fixSz,0)),
+                        lineWidth=.2, closeShape=False, lineColor='white')
 # question text:
-qntxtLeft = visual.TextStim(win=win, name='qntxtLeft',
-    text='1=not stable\n2=not very stable\n3=almost stable\n4=completely stable',
-    font='Cambria', pos=[-windowOffsetX, windowOffsetY], height=.55, wrapWidth=4.5,
-    color='white', colorSpace='rgb', opacity=1)
-qntxtRight = visual.TextStim(win=win, name='qntxtRight',
-    text='1=not stable\n2=not very stable\n3=almost stable\n4=completely stable',
-    font='Cambria', pos=[windowOffsetX, windowOffsetY], height=.55, wrapWidth=4.5,
-    color='white', colorSpace='rgb', opacity=1)
-# rings (for centTask==1):
-ringSzDef = windowSize/10
-ringLeft = visual.Polygon(win=win, name='ringLeft', units='deg', edges=36,
-    size=[ringSzDef, ringSzDef], ori=0,
-    pos=[-windowOffsetX, windowOffsetY],
-    lineWidth=windowThickness, lineColor=u'red', lineColorSpace='rgb',
-    fillColor=None, opacity=.1, interpolate=True)
-ringRight = visual.Polygon(win=win, name='ringRight', units='deg', edges=36,
-    size=[ringSzDef, ringSzDef], ori=0, 
-    pos=[windowOffsetX, windowOffsetY],
-    lineWidth=windowThickness, lineColor=u'red', lineColorSpace='rgb',
-    fillColor=None, opacity=.1, interpolate=True)
-# annuli (Out is for central, In is for peripheral)
-annuOut1d = np.concatenate((np.tile(0,1), np.tile(1,1)))
-annuOutL = visual.RadialStim(win=win, tex='sqrXsqr', name='annuOutL', units='deg',
-                             pos=[-windowOffsetX,windowOffsetY],
-                             size=[windowSize,windowSize],
-                             mask=[0,1], color='white', #actually black
-                             radialCycles=0, angularCycles=0)
-annuOutR = visual.RadialStim(win=win, tex='sqrXsqr', name='annuOutR', units='deg',
-                             pos=[windowOffsetX,windowOffsetY],
-                             size=[windowSize,windowSize],
-                             mask=[0,1], color='white',
-                             radialCycles=0, angularCycles=0)
-annuIn1d = np.concatenate((np.tile(1,1), np.tile(0,1))) #, np.tile(1,15)))
-annuInL = visual.RadialStim(win=win, tex='sqrXsqr', name='annuInL', units='deg',
-                             pos=[-windowOffsetX,windowOffsetY],
-                             size=[windowSize,windowSize],
-                             mask=[0,1], color='white',
-                             radialCycles=0, angularCycles=0)
-annuInR = visual.RadialStim(win=win, tex='sqrXsqr', name='annuInR', units='deg',
-                             pos=[windowOffsetX,windowOffsetY],
-                             size=[windowSize,windowSize],
-                             mask=[0,1], color='white',
-                             radialCycles=0, angularCycles=0)
+qntxtL = visual.TextStim(win=win, text='1=not stable\n2=not very stable\n3=almost stable\
+                                        \n4=completely stable', font='Cambria', 
+                         pos=posCentL, height=.55, wrapWidth=4.5,
+                         color='white')
+qntxtR = visual.TextStim(win=win, text='1=not stable\n2=not very stable\n3=almost stable\
+                                        \n4=completely stable', font='Cambria', 
+                         pos=posCentR, height=.55, wrapWidth=4.5,
+                         color='white')
+# feedback ring (for ct):
+ringSzDef = winSz/10
+ringL = visual.Polygon(win, edges=36, size=[ringSzDef, ringSzDef], ori=0, 
+                       pos=posCentL, lineWidth=winThickness, lineColor=u'red',
+                       opacity=.1, interpolate=True)
+ringR = visual.Polygon(win, edges=36, size=[ringSzDef, ringSzDef], ori=0, 
+                       pos=posCentR, lineWidth=winThickness, lineColor=u'red',
+                       opacity=.1, interpolate=True)
+# annuli (for fp):
+#annuOut1d = np.concatenate((np.tile(0,10), np.tile(1,10)))
+annuOutL = visual.RadialStim(win, tex='sqrXsqr', pos=posCentL, size=[winSz,winSz],
+                             mask=[0,1], color='white', radialCycles=0, angularCycles=0)
+annuOutR = visual.RadialStim(win, tex='sqrXsqr', pos=posCentR, size=[winSz,winSz],
+                             mask=[0,1], color='white', radialCycles=0, angularCycles=0)
+#annuIn1d = np.concatenate((np.tile(1,10), np.tile(0,10)))
+annuInL = visual.RadialStim(win, tex='sqrXsqr', pos=posCentL, size=[winSz,winSz],
+                            mask=[1,0], color='white', radialCycles=0, angularCycles=0)
+annuInR = visual.RadialStim(win, tex='sqrXsqr', pos=posCentR, size=[winSz,winSz],
+                            mask=[1,0], color='white', radialCycles=0, angularCycles=0)
 # pause text:
-pauseTextLeft = visual.TextStim(win=win, ori=0, name='pauseTextLeft',
-    text='Press Spacebar to continue.', font='Cambria', alignHoriz='center',
-    pos=[-windowOffsetX, windowOffsetY], height=.7, wrapWidth=3, color='white',
-    colorSpace='rgb', opacity=1)
-pauseTextRight = visual.TextStim(win=win, ori=0, name='pauseTextRight',
-    text='Press Spacebar to continue.', font='Cambria', alignHoriz='center',
-    pos=[windowOffsetX, windowOffsetY], height=.7, wrapWidth=3, color='white',
-    colorSpace='rgb', opacity=1)
+pauseTextL = visual.TextStim(win, text='Press Spacebar to continue', font='Cambria',
+                             alignHoriz='center', pos=posCentL, height=.7, wrapWidth=3,
+                             color='white')
+pauseTextR = visual.TextStim(win, text='Press Spacebar to continue', font='Cambria',
+                             alignHoriz='center', pos=posCentR, height=.7, wrapWidth=3,
+                             color='white')
 
 # Create some handy timers
 globalClock = core.Clock()  # to track the time since experiment started
@@ -343,13 +343,22 @@ dataFileName = filePath + os.sep + fileName + '.csv'
 
 # Increase/decrease of the after-trial central motion task:
 def ringSz(ring, ringSzMulti):
-    sz = ring.size[1] + ringSzMulti * windowSize / ringSteps
-    if sz > windowSize:
-        sz = windowSize
-    elif sz < windowSize/ringSteps:
+    sz = ring.size[1] + ringSzMulti * winSz / ringSteps
+    if sz > winSz:
+        sz = winSz
+    elif sz < winSz/ringSteps:
         sz = ringSzDef
     ring.setSize([sz,sz])
     return ring
+
+def drawFeedbackAngle(dirFdbk, lr, angle, winOffX=winOffX, winOffY=winOffY, winSz=winSz):
+    lineStart = [int( lr*winOffX + np.cos(np.radians(angle))*winSz/2 ),
+                 int( winOffY + np.sin(np.radians(angle))*winSz/2 )]
+    lineEnd = [int( lr*winOffX + np.cos(np.radians(angle)) * (winSz/2 + fdbkLen) ),
+               int( winOffY + np.sin(np.radians(angle)) * (winSz/2 + fdbkLen) )]
+    dirFdbk.start = lineStart
+    dirFdbk.end = lineEnd
+    return dirFdbk
 
 # ====================================================================================
 
@@ -376,8 +385,8 @@ while continueRoutine:
         instrKey.status = STARTED
         # keyboard checking is just starting
         event.clearEvents(eventType='keyboard')
-        windowLeft.setAutoDraw(True)
-        windowRight.setAutoDraw(True)
+        winL.setAutoDraw(True)
+        winR.setAutoDraw(True)
     if instrKey.status == STARTED:
         theseKeys = event.getKeys()
         
@@ -485,31 +494,31 @@ for thisTrial in trials:
     frameN = -1
     tMaskMove = 0
     qnResp = 0
-    ringLeft.setSize([ringSzDef,ringSzDef])
-    ringRight.setSize([ringSzDef,ringSzDef])
+    if centTask==1:
+        ringL.setSize([ringSzDef,ringSzDef])
+        ringR.setSize([ringSzDef,ringSzDef])
     key_pressed = False
     key_pause = False
     key_qn = False
     behRespRecorded = False
     someKeyPressed = False # to prevent recording key releases at trial beginning
-    windowLeft.lineColor = 'white'
-    windowRight.lineColor = 'white'
     # update component parameters for each repeat
     key_arrow = event.BuilderKeyResponse()  # create an object of type KeyResponse
     key_arrow.status = NOT_STARTED
     # keep track of which components have finished
     trialComponents = []
-    trialComponents.append(windowLeft)
-    trialComponents.append(windowRight)
-    trialComponents.append(feedbackLeft)
-    trialComponents.append(feedbackRight)
-    trialComponents.append(qntxtLeft)
-    trialComponents.append(qntxtRight)
-    trialComponents.append(ringLeft)
-    trialComponents.append(ringRight)
+    trialComponents.append(winL)
+    trialComponents.append(winR)
+    trialComponents.append(dirFdbkL)
+    trialComponents.append(dirFdbkR)
+    trialComponents.append(qntxtL)
+    trialComponents.append(qntxtR)
+    if centTask==1:
+        trialComponents.append(ringL)
+        trialComponents.append(ringR)
     trialComponents.append(key_arrow)
-    trialComponents.append(pauseTextLeft)
-    trialComponents.append(pauseTextRight)
+    trialComponents.append(pauseTextL)
+    trialComponents.append(pauseTextR)
     trialComponents.append(ISI)
     trialComponents.append(fixL)
     trialComponents.append(fixR)
@@ -539,40 +548,41 @@ for thisTrial in trials:
         frameN = frameN + 1 # number of completed frames (0 is the first frame)
         # update/draw components on each frame
         
-        # *windowLeft* updates
-        if windowLeft.status == NOT_STARTED:
+        # *winL* updates
+        if winL.status == NOT_STARTED:
             # keep track of start time/frame for later
-            windowLeft.tStart = t  # underestimates by a little under one frame
-            windowLeft.frameNStart = frameN  # exact frame index
-            windowLeft.setAutoDraw(True)
-            windowLeft.status = STARTED
+            winL.tStart = t  # underestimates by a little under one frame
+            winL.frameNStart = frameN  # exact frame index
+            winL.setAutoDraw(True)
+            winL.status = STARTED
         
-        # *windowRight* updates
-        if windowRight.status == NOT_STARTED:
+        # *winR* updates
+        if winR.status == NOT_STARTED:
             # keep track of start time/frame for later
-            windowRight.tStart = t  # underestimates by a little under one frame
-            windowRight.frameNStart = frameN  # exact frame index
-            windowRight.setAutoDraw(True)
-            windowRight.status = STARTED
+            winR.tStart = t  # underestimates by a little under one frame
+            winR.frameNStart = frameN  # exact frame index
+            winR.setAutoDraw(True)
+            winR.status = STARTED
 
         # stimulus presentation:
         if t < trialT:
             stimL = visual.GratingStim(win, tex=grtL[:,:,frameN%nFrames], 
-                size=(grtSize,grtSize), units='pix', 
-                pos=(-windowOffsetX*dimMulti, windowOffsetY*dimMulti),
+                size=(grtSize,grtSize),
+                pos=posCentL, #(-winOffX, winOffY),
                 interpolate=False, mask='circle', ori=90+dirL)
             stimL.draw()
             stimR = visual.GratingStim(win, tex=grtR[:,:,frameN%nFrames], 
-                size=(grtSize,grtSize), units='pix', 
-                pos=(windowOffsetX*dimMulti, windowOffsetY*dimMulti),
+                size=(grtSize,grtSize),
+                pos=posCentR, #(winOffX, winOffY),
                 interpolate=False, mask='circle', ori=90+dirR)
             stimR.draw()
-            if centTask==2 and peri:
-                annuInL.draw()
-                annuInR.draw()
-            else:
-                annuOutL.draw()
-                annuOutR.draw()
+            if centTask==2:
+                if peri:
+                    annuInL.draw()
+                    annuInR.draw()
+                else:
+                    annuOutL.draw()
+                    annuOutR.draw()
         
         # *key_arrow* updates
         if key_arrow.status == NOT_STARTED:
@@ -593,42 +603,30 @@ for thisTrial in trials:
             # print theseReleases
             # check for quit:
             if len(thesePresses) > 0:
-                feedbackLeft.setAutoDraw(True)
-                feedbackRight.setAutoDraw(True)
+                dirFdbkL.setAutoDraw(True)
+                dirFdbkR.setAutoDraw(True)
                 keyPressFN = frameN
                 someKeyPressed = True
                 if 'left' in thesePresses:
                     print '"left" key is pressed'
-                    feedbackLeft.start = [-windowOffsetX-windowSize/2, windowOffsetY]
-                    feedbackLeft.end = [-windowOffsetX-(windowSize/2)-fdbkLen,
-                        windowOffsetY]
-                    feedbackRight.start = [windowOffsetX-windowSize/2, windowOffsetY]
-                    feedbackRight.end = [windowOffsetX-(windowSize/2)-fdbkLen,
-                        windowOffsetY]
+                    drawFeedbackAngle(dirFdbkL, -1, 180)
+                    drawFeedbackAngle(dirFdbkR, 1, 180)
                     whichKeyPressed = 'left' # only needed for final key press
                 elif 'right' in thesePresses:
                     print '"right" key is pressed'
-                    feedbackLeft.start = [-windowOffsetX+windowSize/2, windowOffsetY]
-                    feedbackLeft.end = [-windowOffsetX+(windowSize/2)+fdbkLen,
-                                         windowOffsetY]
-                    feedbackRight.start = [windowOffsetX+windowSize/2, windowOffsetY]
-                    feedbackRight.end = [windowOffsetX+(windowSize/2)+fdbkLen,
-                                         windowOffsetY]
+                    drawFeedbackAngle(dirFdbkL, -1, 0)
+                    drawFeedbackAngle(dirFdbkR, 1, 0)
                     whichKeyPressed = 'right'
                 elif 'down' in thesePresses:
                     print '"down" key is pressed'
-                    feedbackLeft.start = [-windowOffsetX, windowOffsetY-windowSize/2]
-                    feedbackLeft.end = [-windowOffsetX,
-                                        windowOffsetY-(windowSize/2)-fdbkLen]
-                    feedbackRight.start = [windowOffsetX, windowOffsetY-windowSize/2]
-                    feedbackRight.end = [windowOffsetX,
-                                         windowOffsetY-(windowSize/2)-fdbkLen]
+                    drawFeedbackAngle(dirFdbkL, -1, 270)
+                    drawFeedbackAngle(dirFdbkR, 1, 270)
                     whichKeyPressed = 'down'
                 else:
                     print 'some other key is pressed'
             if len(theseReleases) > 0 and someKeyPressed:
-                feedbackLeft.setAutoDraw(False)
-                feedbackRight.setAutoDraw(False)
+                dirFdbkL.setAutoDraw(False)
+                dirFdbkR.setAutoDraw(False)
                 print '...released after ' + \
                       str(np.around((frameN-keyPressFN)/60,2)) + 's'
                 someKeyPressed = False
@@ -644,8 +642,8 @@ for thisTrial in trials:
 
         # after-trial question about the trial stability
         if ~key_qn and t > trialT and centTask == 0:
-            qntxtLeft.setAutoDraw(True)
-            qntxtRight.setAutoDraw(True)
+            qntxtL.setAutoDraw(True)
+            qntxtR.setAutoDraw(True)
             thesePresses = kb_device.getPresses(keys=['1','2','3','4'])
             if len(thesePresses)>0:
                 if '1' in thesePresses:
@@ -656,31 +654,31 @@ for thisTrial in trials:
                     qnResp = 3
                 elif '4' in thesePresses:
                     qnResp = 4
-                qntxtLeft.setAutoDraw(False)
-                qntxtRight.setAutoDraw(False)
+                qntxtL.setAutoDraw(False)
+                qntxtR.setAutoDraw(False)
                 key_qn = True
 
         # after-trial question about the extent of the central motion pattern:
         if ~key_qn and t > trialT and centTask == 1:
-            ringLeft.setAutoDraw(True)
-            ringRight.setAutoDraw(True)
+            ringL.setAutoDraw(True)
+            ringR.setAutoDraw(True)
             thesePresses = kb_device.getPresses(keys=['z','x',' '])
             if len(thesePresses)>0:
                 if 'z' in thesePresses:
-                    ringLeft = ringSz(ringLeft, 1) # increase the ring size
-                    ringRight = ringSz(ringRight, 1)
+                    ringL = ringSz(ringL, 1) # increase the ring size
+                    ringR = ringSz(ringR, 1)
                 elif 'x' in thesePresses:
-                    ringLeft = ringSz(ringLeft, -1) # decrease the ring size
-                    ringRight = ringSz(ringRight, -1)
+                    ringL = ringSz(ringL, -1) # decrease the ring size
+                    ringR = ringSz(ringR, -1)
                 elif ' ' in thesePresses:
-                    ringLeft.setAutoDraw(False)
-                    ringRight.setAutoDraw(False)
+                    ringL.setAutoDraw(False)
+                    ringR.setAutoDraw(False)
                     key_qn = True
 
         # pause text and data exporting
         if key_qn and ~key_pause and t > trialT:
-            pauseTextLeft.setAutoDraw(True)
-            pauseTextRight.setAutoDraw(True)
+            pauseTextL.setAutoDraw(True)
+            pauseTextR.setAutoDraw(True)
             if not behRespRecorded: # a flag for data recording
                 # Make sure to record the release of a key at trial end
                 if someKeyPressed:
@@ -690,8 +688,8 @@ for thisTrial in trials:
                         behRespTrial[0,keyPressFN:(trialT*nFrames)] = 0
                     if whichKeyPressed == 'down':
                         behRespTrial[0,keyPressFN:(trialT*nFrames)] = 270
-                    feedbackLeft.setAutoDraw(False)
-                    feedbackRight.setAutoDraw(False)
+                    dirFdbkL.setAutoDraw(False)
+                    dirFdbkR.setAutoDraw(False)
                     print '...released after ' + \
                         str(np.around(((trialT*nFrames)-keyPressFN)/60,2)) + 's'
                     print 'recorded post-trial response'
@@ -720,7 +718,7 @@ for thisTrial in trials:
                                    'pd000': [nf000 / (trialT * nFrames)],
                                    'pd180': [nf180 / (trialT * nFrames)],
                                    'pd270': [nf270 / (trialT * nFrames)],
-                                   'qnResp': qnResp, 'ringSz': ringLeft.size[0]})
+                                   'qnResp': qnResp, 'ringSz': ringL.size[0]})
                 # to preserve the column order:
                 dataCols = ['expName', 'time', 'participant', 'session', 'trialN',
                             'dirL', 'dirR', 'vL', 'vR', 'szL', 'szR', 'sfL', 'sfR',
@@ -735,8 +733,8 @@ for thisTrial in trials:
                 print 'wrote the data set to ' + dataFileName
             if 'space' in event.getKeys(keyList=['space']):
                 print 'spacebar pressed - continuing to the next trial'
-                pauseTextLeft.setAutoDraw(False)
-                pauseTextRight.setAutoDraw(False)
+                pauseTextL.setAutoDraw(False)
+                pauseTextR.setAutoDraw(False)
                 key_pause = True
 
         # *ISI* period
