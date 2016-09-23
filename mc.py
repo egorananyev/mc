@@ -22,8 +22,8 @@ _thisDir = os.path.dirname(os.path.abspath(__file__))
 
 # ====================================================================================
 ## Initial variables.
-et = 0
-expName = 'mcvfp' # v=velocity, bsf = SF bandwidth, fp = foveal/peripheral, ct = central task
+et = 1
+expName = 'mcvct' # v=velocity, bsf = SF bandwidth, fp = foveal/peripheral, ct = central task
 # Window circles (specified in degrees of visual angles [dva]):
 #winSz = 7.2 # 5.03; calculated as 5/x=sqrt(2)/2 => x=10/sqrt(2)
 winOffX = 6 # 5.62
@@ -41,8 +41,8 @@ grtSize = 256 # size of 256 is 71mm, or 7.2dova
 ringSteps = 7
 # Dimensions:
 ###### 7.2dova = 71mm = 256px; 475x296mm, 563mm viewing dist ######
-#dr = (1680,1050) # display resolution in px
-dr = (1366,768)
+dr = (1680,1050) # display resolution in px
+#dr = (1366,768)
 #dd = (47.5,29.6) # display dimensions in cm
 dd = (29.5,16.6)
 ds = 49.5 # distance to screen in cm
@@ -96,8 +96,8 @@ if et:
     displayInfo = pl.getDisplayInformation()
     print displayInfo.width, displayInfo.height
     screenCenter = (int(dr[0]/2), int(dr[1]/2))
-    calScreenCenter = (int(screenCenter[0]+dg2px(winOffX)),
-                    int(screenCenter[1]-dg2px(winOffY)))
+    calScreenCenter = (int(screenCenter[0]+winOffX),
+                    int(screenCenter[1]-winOffY))
     calTargDist = int(winSz/3)
     calTarg1 = calScreenCenter
     calTarg2 = (int(calScreenCenter[0]-calTargDist), int(calScreenCenter[1]))
@@ -133,7 +133,7 @@ if et:
     el = eyeTrkInit(dr)
     print 'Finished initializing the eye tracker.'
 
-    def eyeTrkCalib (el,dr,cd):
+    def eyeTrkCalib (el=el,dr=dr,cd=cd):
         # "opens the graphics if the display mode is not set"
         pl.openGraphics(dr,cd)
         pl.setCalibrationColors((255,255,255),(0,177,177))
@@ -161,16 +161,16 @@ else:
     frameDur = 1.0/60.0 # couldn't get a reliable measure so guess
 
 # ====================================================================================
-from psychopy.iohub import launchHubServer
-io = launchHubServer()
-kb_device = io.devices.keyboard
+#from psychopy.iohub import launchHubServer
+#io = launchHubServer()
+#kb_device = io.devices.keyboard
 
 # ====================================================================================
 # Eye-tracking setup
 
 if et:
-    kb_device.clearEvents()
-    def etSetup(el,dr,cd):
+    #kb_device.clearEvents()
+    def etSetup(el=el,dr=dr,cd=cd):
         blockLabel=visual.TextStim(win, text="Press spacebar", pos=posCentR,
                                    color="white", bold=True, alignHoriz="center",
                                    height=0.5)
@@ -178,19 +178,20 @@ if et:
         while notdone:
             blockLabel.draw()
             win.flip()
-            keySpace = kb_device.getPresses(keys=[' ','escape'])
-            if ' ' in keySpace:
+            #keySpace = kb_device.getPresses(keys=[' ','escape'])
+            keySpace = event.getKeys(keyList=['escape','space'])
+            if 'space' in keySpace:
                 print 'spacebar pressed'
-                eyeTrkCalib(el,dr,cd)
-                win.winHandle.activate()
+                eyeTrkCalib()
+                #win.winHandle.activate()
                 print '///Finished calibration///'
                 notdone=False
             elif 'escape' in keySpace:
                 print 'procedure terminated'
                 notdone=False
-    etSetup(el,dr,cd)
+    etSetup()
 
-    def drCor(el,dr,cd):
+    def drCor(el=el,dr=dr,cd=cd):
         pl.openGraphics(dr,cd)
         el.doDriftCorrect(calScreenCenter[0], calScreenCenter[1], 1, 0)
         pl.closeGraphics()
@@ -436,12 +437,12 @@ for thisComponent in instructionsComponents:
     if hasattr(thisComponent, "setAutoDraw"):
         thisComponent.setAutoDraw(False)
 
-#win.winHandle.minimize()
-#win.flip()
-#drCor(el,dr,cd)
-#win.winHandle.maximize()
-#win.flip()
-#win.winHandle.activate()
+win.winHandle.minimize()
+win.flip()
+drCor()
+win.winHandle.maximize()
+win.flip()
+win.winHandle.activate()
 
 # ====================================================================================
 # Initiating the trial loop
@@ -607,7 +608,7 @@ for thisTrial in trials:
             # keyboard checking is just starting
             key_arrow.clock.reset()  # now t=0
             event.clearEvents(eventType='keyboard')
-            kb_device.clearEvents()
+            #kb_device.clearEvents()
         if key_arrow.status == STARTED and not centTask and t < trialT:
             thesePresses = kb_device.getPresses(keys=['left','right','down'])
             theseReleases = kb_device.getReleases(keys=['left','right','down'])
@@ -670,15 +671,15 @@ for thisTrial in trials:
         if ~key_qn and t > trialT and centTask == 0:
             qntxtL.setAutoDraw(True)
             qntxtR.setAutoDraw(True)
-            thesePresses = kb_device.getPresses(keys=['1','2','3','4'])
-            if len(thesePresses)>0:
-                if '1' in thesePresses:
+            theseKeys = event.getKeys(keyList=['1','2','3','4'])
+            if len(theseKeys)>0:
+                if '1' in theseKeys:
                     qnResp = 1
-                elif '2' in thesePresses:
+                elif '2' in theseKeys:
                     qnResp = 2
-                elif '3' in thesePresses:
+                elif '3' in theseKeys:
                     qnResp = 3
-                elif '4' in thesePresses:
+                elif '4' in theseKeys:
                     qnResp = 4
                 qntxtL.setAutoDraw(False)
                 qntxtR.setAutoDraw(False)
