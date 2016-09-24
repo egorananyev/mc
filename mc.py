@@ -22,14 +22,14 @@ _thisDir = os.path.dirname(os.path.abspath(__file__))
 
 # ====================================================================================
 ## Initial variables.
-et = 1
+et = 0
 expName = 'mcvct' # v=velocity, bsf = SF bandwidth, fp = foveal/peripheral, ct = central task
 # Window circles (specified in degrees of visual angles [dva]):
 #winSz = 7.2 # 5.03; calculated as 5/x=sqrt(2)/2 => x=10/sqrt(2)
 winOffX = 6 # 5.62
 winOffY = 3.5 # 5.5 (3.5cm ~= 124px)
-winThickness = 4 # in pixels
-fdbkLen = 1 # the length of the feedback line, in degrees
+winThickness = 2 # in pixels
+fdbkLen = .5 # the length of the feedback line, in degrees
 fdbkThick = 5 # the tickness of the feedback line, in pixels
 # Timing variables:
 ISIduration = 1
@@ -152,7 +152,7 @@ if et:
 # ====================================================================================
 # Setup the Window
 win = visual.Window(size=dr, fullscr=True, screen=0, allowGUI=False, 
-      allowStencil=False, color='black', blendMode='avg', useFBO=True, units='pix')
+      allowStencil=False, color='grey', blendMode='avg', useFBO=True, units='pix')
 # store frame rate of monitor if we can measure it successfully:
 frameRate=win.getActualFrameRate()
 if frameRate!=None:
@@ -286,17 +286,17 @@ ringR = visual.Polygon(win, edges=36, size=[ringSzDef, ringSzDef], ori=0,
                        opacity=.1, interpolate=True)
 # annuli (for fp):
 #annuOut1d = np.concatenate((np.tile(0,10), np.tile(1,10)))
-annuOutL = visual.RadialStim(win, tex='sqrXsqr', pos=posCentL, size=[winSz,winSz],
-                             mask=[0,1], color='white', radialCycles=0,
-                             angularCycles=0)
-annuOutR = visual.RadialStim(win, tex='sqrXsqr', pos=posCentR, size=[winSz,winSz],
-                             mask=[0,1], color='white', radialCycles=0,
-                             angularCycles=0)
+#annuOutL = visual.RadialStim(win, tex='sqrXsqr', pos=posCentL, size=[winSz,winSz],
+#                             mask=[0,1], color='white', radialCycles=0,
+#                             angularCycles=0)
+#annuOutR = visual.RadialStim(win, tex='sqrXsqr', pos=posCentR, size=[winSz,winSz],
+#                             mask=[0,1], color='white', radialCycles=0,
+#                             angularCycles=0)
 #annuIn1d = np.concatenate((np.tile(1,10), np.tile(0,10)))
-annuInL = visual.RadialStim(win, tex='sqrXsqr', pos=posCentL, size=[winSz,winSz],
-                            mask=[1,0], color='white', radialCycles=0, angularCycles=0)
-annuInR = visual.RadialStim(win, tex='sqrXsqr', pos=posCentR, size=[winSz,winSz],
-                            mask=[1,0], color='white', radialCycles=0, angularCycles=0)
+#annuInL = visual.RadialStim(win, tex='sqrXsqr', pos=posCentL, size=[winSz,winSz],
+#                            mask=[1,0], color='white', radialCycles=0, angularCycles=0)
+#annuInR = visual.RadialStim(win, tex='sqrXsqr', pos=posCentR, size=[winSz,winSz],
+#                            mask=[1,0], color='white', radialCycles=0, angularCycles=0)
 # pause text:
 pauseTextL = visual.TextStim(win, text='Press Spacebar to continue', font='Cambria',
                              alignHoriz='center', pos=posCentL, height=dg2px(.7),
