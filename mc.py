@@ -23,7 +23,7 @@ _thisDir = os.path.dirname(os.path.abspath(__file__))
 # ====================================================================================
 ## Initial variables.
 et = 0
-expName = 'mcvct' # v=velocity, bsf = SF bandwidth, fp = foveal/peripheral, ct = central task
+expName = 'mcvfp' # v=velocity, bsf = SF bandwidth, fp = foveal/peripheral, ct = central task
 # Window circles (specified in degrees of visual angles [dva]):
 #winSz = 7.2 # 5.03; calculated as 5/x=sqrt(2)/2 => x=10/sqrt(2)
 winOffX = 6 # 5.62
@@ -33,11 +33,11 @@ fdbkLen = .5 # the length of the feedback line, in degrees
 fdbkThick = 5 # the tickness of the feedback line, in pixels
 # Timing variables:
 ISIduration = 1
-fixSz = .3
+fixSz = .15
 # MCs:
 precompileMode = 1 # get the precompiled MCs
 grtSize = 256 # size of 256 is 71mm, or 7.2dova
-# Ring steps:
+# Ring steps (for ct):
 ringSteps = 7
 # Dimensions:
 ###### 7.2dova = 71mm = 256px; 475x296mm, 563mm viewing dist ######
@@ -372,6 +372,19 @@ def drawFdbkAngle(dirFdbk, lr, angle, winOffX=winOffX, winOffY=winOffY, winSz=wi
     dirFdbk.end = lineEnd
     return dirFdbk
 
+def sigmoid(x):
+    return 1 / (1 + np.exp(-x))
+
+x = np.arange(-grtSize/2,grtSize/2)
+y = np.arange(-grtSize/2,grtSize/2)
+x, y = np.meshgrid(x, y)
+R = np.sqrt((x+.5)**2 + (y+.5)**2) # adding .5 ensures symmetry
+
+def combinedMask(fovGap, fovFade, periGap, periFade, R=R):
+    fovMask = sigmoid(R * (10./fovFade) - (fovGap * (10./fovFade)) - 5)*2 - 1
+    periMask = sigmoid(R * (-10./(periFade)) + 5 + periGap*(10./periFade))*2 - 1
+    return fovMask * periMask
+
 # ====================================================================================
 
 #-------Start Routine "instructions"-------
@@ -437,12 +450,12 @@ for thisComponent in instructionsComponents:
     if hasattr(thisComponent, "setAutoDraw"):
         thisComponent.setAutoDraw(False)
 
-win.winHandle.minimize()
-win.flip()
-drCor()
-win.winHandle.maximize()
-win.flip()
-win.winHandle.activate()
+#win.winHandle.minimize()
+#win.flip()
+#drCor()
+#win.winHandle.maximize()
+#win.flip()
+#win.winHandle.activate()
 
 # ====================================================================================
 # Initiating the trial loop
@@ -474,8 +487,12 @@ for thisTrial in trials:
     print 'BsfL=' + str(BsfL) + '; BsfR=' + str(BsfR)
     centTask = thisTrial['centTask']
     print 'centTask=' + str(centTask)
-    peri = thisTrial['peri']
-    print 'peri=' + str(peri)
+    fovGap = thisTrial['fovGap']
+    fovFade = thisTrial['fovFade']
+    print 'fovGap=' + str(fovGap) + '; fovFade=' + str(fovFade)
+    periGap = thisTrial['periGap']
+    periFade = thisTrial['periFade']
+    print 'periGap=' + str(periGap) + '; periFade=' + str(periFade)
     trialT = thisTrial['trialT'] # -win.monitorFramePeriod*0.75
     nFrames = 60 # number of frames per sequence
     
@@ -583,21 +600,18 @@ for thisTrial in trials:
 
         # stimulus presentation:
         if t < trialT:
+            if centTask==2:
+                curMask = combinedMask(fovGap, fovFade, periGap, periFade)
+            else:
+                curMask = 'circle'
             stimL = visual.GratingStim(win, tex=grtL[:,:,frameN%nFrames], 
                 size=(grtSize,grtSize), pos=posCentL, 
-                interpolate=False, mask='circle', ori=90+dirL)
+                interpolate=False, mask=curMask, ori=90+dirL)
             stimL.draw()
             stimR = visual.GratingStim(win, tex=grtR[:,:,frameN%nFrames], 
                 size=(grtSize,grtSize), pos=posCentR,
-                interpolate=False, mask='circle', ori=90+dirR)
+                interpolate=False, mask=curMask, ori=90+dirR)
             stimR.draw()
-            if centTask==2:
-                if peri:
-                    annuInL.draw()
-                    annuInR.draw()
-                else:
-                    annuOutL.draw()
-                    annuOutR.draw()
         
         # *key_arrow* updates
         if key_arrow.status == NOT_STARTED:
@@ -749,7 +763,9 @@ for thisTrial in trials:
                                    'dirL': dirL, 'dirR': dirR,
                                    'vL': vL, 'vR': vR, 'szL': szL, 'szR': szR,
                                    'sfL': sfL, 'sfR': sfR, 'BvL': BvL, 'BvR': BvR,
-                                   'BsfL': BsfL, 'BsfR': BsfR, 'peri': peri,
+                                   'BsfL': BsfL, 'BsfR': BsfR,
+                                   'fovGap': fovGap, 'fovFade': fovFade,
+                                   'periGap': periGap, 'periFade': periFade,
                                    'trialT': trialT, 'nFrames': nFrames, 'nNa': nNa,
                                    'nf000': nf000, 'nf180': nf180, 'nf270': nf270,
                                    'pd000': [nf000 / (trialT * nFrames)],
@@ -759,8 +775,8 @@ for thisTrial in trials:
                 # to preserve the column order:
                 dataCols = ['expName', 'time', 'participant', 'session', 'trialN',
                             'dirL', 'dirR', 'vL', 'vR', 'szL', 'szR', 'sfL', 'sfR',
-                            'tfL', 'tfR', 'BsfL', 'BsfR', 'peri', 'trialT', 'nFrames', 
-                            'nNa', 'nf000', 'nf180', 'nf270', 'pd000', 'pd180',
+                            'tfL', 'tfR', 'BsfL', 'BsfR', 'fovGap', 'fovFade', 'periGap', 'periFade',
+                            'trialT', 'nFrames', 'nNa', 'nf000', 'nf180', 'nf270', 'pd000', 'pd180',
                             'pd270', 'qnResp']
                 if nDone == 1:
                     df = dT
