@@ -9,13 +9,16 @@ from __future__ import division  # so that 1/3=0.333 instead of 1/3=0
 from psychopy import visual, core, data, event, gui
 from psychopy.constants import *  # things like STARTED, FINISHED
 import numpy as np
-from datetime import datetime
-import os  # handy system and path functions
-import itertools
-import shutil
-import pyglet
-import MotionClouds as mc
 import pandas as pd
+from datetime import datetime
+import os, shutil, itertools  # handy system and path functions
+#import pyglet
+import MotionClouds as mc
+
+#Initiating the keyboard
+from psychopy.iohub import launchHubServer
+io = launchHubServer()
+kb_device = io.devices.keyboard
 
 # Ensure that relative paths start from the same directory as this script
 _thisDir = os.path.dirname(os.path.abspath(__file__))
@@ -37,6 +40,7 @@ fixSz = .15
 # MCs:
 precompileMode = 1 # get the precompiled MCs
 grtSize = 256 # size of 256 is 71mm, or 7.2dova
+colorEither = [[1,-1,-1],[-1,-1,1]]
 # Ring steps (for ct):
 ringSteps = 7
 # Dimensions:
@@ -161,15 +165,9 @@ else:
     frameDur = 1.0/60.0 # couldn't get a reliable measure so guess
 
 # ====================================================================================
-#from psychopy.iohub import launchHubServer
-#io = launchHubServer()
-#kb_device = io.devices.keyboard
-
-# ====================================================================================
 # Eye-tracking setup
 
 if et:
-    #kb_device.clearEvents()
     def etSetup(el=el,dr=dr,cd=cd):
         blockLabel=visual.TextStim(win, text="Press spacebar", pos=posCentR,
                                    color="white", bold=True, alignHoriz="center",
@@ -178,7 +176,6 @@ if et:
         while notdone:
             blockLabel.draw()
             win.flip()
-            #keySpace = kb_device.getPresses(keys=[' ','escape'])
             keySpace = event.getKeys(keyList=['escape','space'])
             if 'space' in keySpace:
                 print 'spacebar pressed'
@@ -493,16 +490,29 @@ for thisTrial in trials:
     periGap = thisTrial['periGap']
     periFade = thisTrial['periFade']
     print 'periGap=' + str(periGap) + '; periFade=' + str(periFade)
+    fixCross = thisTrial['fixCross']
+    stabQn = thisTrial['stabQn'] # do we need to ask the qn on rivalry stability?
+    if thisTrial['colorL'] == 'rand': # picking one at random
+        colorPick = np.random.permutation(colorEither)
+        colorL = colorPick[0]
+        colorR = colorPick[1]
+    elif thisTrial['colorL'] == 'NA':
+        colorL = [1,1,1] # greyscale
+        colorR = [1,1,1]
+    else:
+        colorL = colorEither[thisTrial['colorL']] # red if 1
+        colorR = colorEither[thisTrial['colorR']] # blue if 1
+
     trialT = thisTrial['trialT'] # -win.monitorFramePeriod*0.75
     nFrames = 60 # number of frames per sequence
     
     # Creating an empty matrix for keeping the behavioural responses:
-    if not centTask: # continuous tracking of the dominance
+    if trialT <= 1: # if short trial, response to be given at the end
+        behRespTrial = []
+    else: # for longer trials, enable continuous tracking:
         behRespTrial = np.empty([1, trialT*nFrames]) 
         behRespTrial[:] = np.NAN
-    else: # after-trial registration of dominance (for short trial conds)
-        behRespTrial = []
-    
+        
     # initiating the gratings
     if precompileMode:
         grtL = np.load(precompiledDir + os.sep + 'mc_' + str(vL) +
@@ -531,7 +541,10 @@ for thisTrial in trials:
     qnResp = 0
     key_pressed = False
     key_pause = False
-    key_qn = False
+    if not stabQn and trialT > 1: # for longer trials with continous monitoring, no need to ask the qn:
+        key_qn = True
+    else: # for shorter trials, or trials that have stabQn explicitely enforced, ask:
+        key_qn = False
     behRespRecorded = False
     someKeyPressed = False # to prevent recording key releases at trial beginning
     # update component parameters for each repeat
@@ -545,7 +558,7 @@ for thisTrial in trials:
     trialComponents.append(dirFdbkR)
     trialComponents.append(qntxtL)
     trialComponents.append(qntxtR)
-    if centTask==1:
+    if centTask:
         ringL.setSize([ringSzDef,ringSzDef])
         ringR.setSize([ringSzDef,ringSzDef])
         trialComponents.append(ringL)
@@ -600,18 +613,23 @@ for thisTrial in trials:
 
         # stimulus presentation:
         if t < trialT:
-            if centTask==2:
+            if not centTask:
                 curMask = combinedMask(fovGap, fovFade, periGap, periFade)
             else:
                 curMask = 'circle'
             stimL = visual.GratingStim(win, tex=grtL[:,:,frameN%nFrames], 
                 size=(grtSize,grtSize), pos=posCentL, 
-                interpolate=False, mask=curMask, ori=90+dirL)
+                interpolate=False, mask=curMask, ori=90+dirL,
+                color=colorL, colorSpace='rgb')
             stimL.draw()
             stimR = visual.GratingStim(win, tex=grtR[:,:,frameN%nFrames], 
                 size=(grtSize,grtSize), pos=posCentR,
-                interpolate=False, mask=curMask, ori=90+dirR)
+                interpolate=False, mask=curMask, ori=90+dirR,
+                color=colorR, colorSpace='rgb')
             stimR.draw()
+            if fixCross:
+                fixL.draw()
+                fixR.draw()
         
         # *key_arrow* updates
         if key_arrow.status == NOT_STARTED:
@@ -622,10 +640,11 @@ for thisTrial in trials:
             # keyboard checking is just starting
             key_arrow.clock.reset()  # now t=0
             event.clearEvents(eventType='keyboard')
-            #kb_device.clearEvents()
-        if key_arrow.status == STARTED and not centTask and t < trialT:
-            thesePresses = kb_device.getPresses(keys=['left','right','down'])
-            theseReleases = kb_device.getReleases(keys=['left','right','down'])
+            kb_device.clearEvents()
+        # registering the response continuously:
+        if key_arrow.status == STARTED and trialT > 1 and t < trialT:
+            thesePresses = kb_device.getPresses(keys=['left','right','up','down'])
+            theseReleases = kb_device.getReleases(keys=['left','right','up','down'])
             if len(thesePresses) > 0:
                 dirFdbkL.setAutoDraw(True)
                 dirFdbkR.setAutoDraw(True)
@@ -641,6 +660,11 @@ for thisTrial in trials:
                     drawFdbkAngle(dirFdbkL, -1, 0)
                     drawFdbkAngle(dirFdbkR, 1, 0)
                     whichKeyPressed = 'right'
+                elif 'up' in thesePresses:
+                    print '"up" key is pressed'
+                    drawFdbkAngle(dirFdbkL, -1, 90)
+                    drawFdbkAngle(dirFdbkR, 1, 90)
+                    whichKeyPressed = 'up'
                 elif 'down' in thesePresses:
                     print '"down" key is pressed'
                     drawFdbkAngle(dirFdbkL, -1, 270)
@@ -656,10 +680,13 @@ for thisTrial in trials:
                     behRespTrial[0,keyPressFN:frameN+1] = 180 # left
                 elif 'right' in theseReleases:
                     behRespTrial[0,keyPressFN:frameN+1] = 0 # right
+                elif 'up' in theseReleases:
+                    behRespTrial[0,keyPressFN:frameN+1] = 90 # right
                 elif 'down' in theseReleases:
                     behRespTrial[0,keyPressFN:frameN+1] = 270 # down
-        if key_arrow.status == STARTED and centTask and t > trialT:
-            theseKeys = event.getKeys(keyList=['left','right','down'])
+        # registering response at the end of the trial for short trials:
+        if key_arrow.status == STARTED and trialT <= 1 and t > trialT:
+            theseKeys = event.getKeys(keyList=['left','right','up','down'])
             if len(theseKeys) > 0:
                 dirFdbkL.setAutoDraw(True)
                 dirFdbkR.setAutoDraw(True)
@@ -675,6 +702,11 @@ for thisTrial in trials:
                     behRespTrial = 0
                     drawFdbkAngle(dirFdbkL, -1, behRespTrial)
                     drawFdbkAngle(dirFdbkR, 1, behRespTrial)
+                elif 'up' in theseKeys:
+                    print '"up" key is pressed'
+                    behRespTrial = 90
+                    drawFdbkAngle(dirFdbkL, -1, behRespTrial)
+                    drawFdbkAngle(dirFdbkR, 1, behRespTrial)
                 elif 'down' in theseKeys:
                     print '"down" key is pressed'
                     behRespTrial = 270
@@ -682,7 +714,7 @@ for thisTrial in trials:
                     drawFdbkAngle(dirFdbkR, 1, behRespTrial)
 
         # after-trial question about the trial stability
-        if ~key_qn and t > trialT and centTask == 0:
+        if ~key_qn and t > trialT and stabQn:
             qntxtL.setAutoDraw(True)
             qntxtR.setAutoDraw(True)
             theseKeys = event.getKeys(keyList=['1','2','3','4'])
@@ -700,18 +732,18 @@ for thisTrial in trials:
                 key_qn = True
 
         # after-trial question about the extent of the central motion pattern:
-        if ~key_qn and t > trialT and centTask == 1:
+        if ~key_qn and t > trialT and centTask:
             ringL.setAutoDraw(True)
             ringR.setAutoDraw(True)
-            thesePresses = kb_device.getPresses(keys=['z','x',' '])
-            if len(thesePresses)>0:
-                if 'z' in thesePresses:
+            theseKeys = event.getKeys(keyList=['z','x',' '])
+            if len(theseKeys)>0:
+                if 'z' in theseKeys:
                     ringL = ringSz(ringL, 1) # increase the ring size
                     ringR = ringSz(ringR, 1)
-                elif 'x' in thesePresses:
+                elif 'x' in theseKeys:
                     ringL = ringSz(ringL, -1) # decrease the ring size
                     ringR = ringSz(ringR, -1)
-                elif ' ' in thesePresses:
+                elif ' ' in theseKeys:
                     ringL.setAutoDraw(False)
                     ringR.setAutoDraw(False)
                     key_qn = True
@@ -725,6 +757,8 @@ for thisTrial in trials:
                         behRespTrial[0,keyPressFN:(trialT*nFrames)] = 180
                     if whichKeyPressed == 'right':
                         behRespTrial[0,keyPressFN:(trialT*nFrames)] = 0
+                    if whichKeyPressed == 'up':
+                        behRespTrial[0,keyPressFN:(trialT*nFrames)] = 90
                     if whichKeyPressed == 'down':
                         behRespTrial[0,keyPressFN:(trialT*nFrames)] = 270
                     dirFdbkL.setAutoDraw(False)
@@ -745,14 +779,18 @@ for thisTrial in trials:
                 if not centTask:
                     nNa = np.count_nonzero(np.isnan(behRespTrial))
                     nf000 = np.count_nonzero(behRespTrial==0)
+                    nf090 = np.count_nonzero(behRespTrial==90)
                     nf180 = np.count_nonzero(behRespTrial==180)
                     nf270 = np.count_nonzero(behRespTrial==270)
+                    #print nNa, nf000, nf090, nf180, nf270
                 else:
                     nNa = 0
                     nf000 = 0
+                    nf090 = 0
                     nf180 = 0
                     nf270 = 0
                     if behRespTrial==0: nf000 = 1
+                    if behRespTrial==90: nf090 = 1
                     if behRespTrial==180: nf180 = 1
                     if behRespTrial==270: nf270 = 1
                 dT = pd.DataFrame({'expName': expName,
@@ -764,20 +802,23 @@ for thisTrial in trials:
                                    'vL': vL, 'vR': vR, 'szL': szL, 'szR': szR,
                                    'sfL': sfL, 'sfR': sfR, 'BvL': BvL, 'BvR': BvR,
                                    'BsfL': BsfL, 'BsfR': BsfR,
+                                   'colorL': str(colorL), 'colorR': str(colorR),
                                    'fovGap': fovGap, 'fovFade': fovFade,
                                    'periGap': periGap, 'periFade': periFade,
                                    'trialT': trialT, 'nFrames': nFrames, 'nNa': nNa,
-                                   'nf000': nf000, 'nf180': nf180, 'nf270': nf270,
+                                   'nf000': nf000, 'nf090': nf090, 'nf180': nf180, 'nf270': nf270,
                                    'pd000': [nf000 / (trialT * nFrames)],
+                                   'pd090': [nf090 / (trialT * nFrames)],
                                    'pd180': [nf180 / (trialT * nFrames)],
                                    'pd270': [nf270 / (trialT * nFrames)],
                                    'qnResp': qnResp, 'ringSz': ringL.size[0]})
                 # to preserve the column order:
                 dataCols = ['expName', 'time', 'participant', 'session', 'trialN',
                             'dirL', 'dirR', 'vL', 'vR', 'szL', 'szR', 'sfL', 'sfR',
-                            'tfL', 'tfR', 'BsfL', 'BsfR', 'fovGap', 'fovFade', 'periGap', 'periFade',
-                            'trialT', 'nFrames', 'nNa', 'nf000', 'nf180', 'nf270', 'pd000', 'pd180',
-                            'pd270', 'qnResp']
+                            'tfL', 'tfR', 'BsfL', 'BsfR', 'colorL', 'colorR',
+                            'fovGap', 'fovFade', 'periGap', 'periFade',
+                            'trialT', 'nFrames', 'nNa', 'nf000', 'nf090', 'nf180', 'nf270', 
+                            'pd000', 'pd090', 'pd180', 'pd270', 'qnResp']
                 if nDone == 1:
                     df = dT
                 else:
