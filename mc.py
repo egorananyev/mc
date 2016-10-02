@@ -25,8 +25,8 @@ _thisDir = os.path.dirname(os.path.abspath(__file__))
 
 # ====================================================================================
 ## Initial variables.
-et = 0
-expName = 'mcvfp' # v=velocity, bsf = SF bandwidth, fp = foveal/peripheral, ct = central task
+et = 1
+expName = 'mcvfg' # v=velocity, bsf = SF bandwidth, fp = foveal/peripheral, ct = central task
 # Window circles (specified in degrees of visual angles [dva]):
 #winSz = 7.2 # 5.03; calculated as 5/x=sqrt(2)/2 => x=10/sqrt(2)
 winOffX = 6 # 5.62
@@ -180,7 +180,7 @@ if et:
             if 'space' in keySpace:
                 print 'spacebar pressed'
                 eyeTrkCalib()
-                #win.winHandle.activate()
+                win.winHandle.activate()
                 print '///Finished calibration///'
                 notdone=False
             elif 'escape' in keySpace:
@@ -752,7 +752,7 @@ for thisTrial in trials:
         if key_qn and ~key_pause and t > trialT:
             if not behRespRecorded: # a flag for data recording
                 # Make sure to record the release of a key at trial end
-                if someKeyPressed and not centTask:
+                if someKeyPressed and not centTask and trialT>1:
                     if whichKeyPressed == 'left':
                         behRespTrial[0,keyPressFN:(trialT*nFrames)] = 180
                     if whichKeyPressed == 'right':
@@ -767,11 +767,11 @@ for thisTrial in trials:
                         str(np.around(((trialT*nFrames)-keyPressFN)/60,2)) + 's'
                     print 'recorded post-trial response'
                 # Recording the responses:
-                if not centTask:
-                    if len(behResp)>0:
-                        behResp = np.vstack((behResp, behRespTrial))
-                    else: 
-                        behResp = behRespTrial
+                #if not centTask:
+                #    if len(behRespTrial)>0:
+                #        behResp = np.vstack((behResp, behRespTrial))
+                #    else: 
+                #        behResp = behRespTrial
                 behRespRecorded = True
                 pauseTextL.setAutoDraw(True)
                 pauseTextR.setAutoDraw(True)
