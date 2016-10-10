@@ -25,8 +25,8 @@ _thisDir = os.path.dirname(os.path.abspath(__file__))
 
 # ====================================================================================
 ## Initial variables.
-et = 1
-expName = 'mcvfg' # v=velocity, bsf = SF bandwidth, fp = foveal/peripheral, ct = central task
+et = 0
+expName = 'mcvfp' # v=velocity, bsf = SF bandwidth, fp = foveal/peripheral, ct = central task
 # Window circles (specified in degrees of visual angles [dva]):
 #winSz = 7.2 # 5.03; calculated as 5/x=sqrt(2)/2 => x=10/sqrt(2)
 winOffX = 6 # 5.62
@@ -40,7 +40,7 @@ fixSz = .15
 # MCs:
 precompileMode = 1 # get the precompiled MCs
 grtSize = 256 # size of 256 is 71mm, or 7.2dova
-colorEither = [[1,-1,-1],[-1,-1,1]]
+colorEither = [[-1,-1,-1],[0,1,0]]
 # Ring steps (for ct):
 ringSteps = 7
 # Dimensions:
@@ -501,7 +501,7 @@ for thisTrial in trials:
         colorR = [1,1,1]
     else:
         colorL = colorEither[thisTrial['colorL']] # red if 1
-        colorR = colorEither[thisTrial['colorR']] # blue if 1
+        colorR = colorEither[thisTrial['colorR']] # green if 1
 
     trialT = thisTrial['trialT'] # -win.monitorFramePeriod*0.75
     nFrames = 60 # number of frames per sequence
