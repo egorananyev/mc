@@ -26,7 +26,7 @@ _thisDir = os.path.dirname(os.path.abspath(__file__))
 # ====================================================================================
 ## Initial variables.
 et = 0
-expName = 'mcvfp' # v=velocity, bsf = SF bandwidth, fp = foveal/peripheral, ct = central task
+expName = 'equil' # v=velocity, bsf = SF bandwidth, fp = foveal/peripheral, ct = central task
 # Window circles (specified in degrees of visual angles [dva]):
 #winSz = 7.2 # 5.03; calculated as 5/x=sqrt(2)/2 => x=10/sqrt(2)
 winOffX = 6 # 5.62
@@ -40,15 +40,12 @@ fixSz = .15
 # MCs:
 precompileMode = 1 # get the precompiled MCs
 grtSize = 256 # size of 256 is 71mm, or 7.2dova
-# Ring steps (for ct):
-ringSteps = 7
 # Dimensions:
 ###### 7.2dova = 71mm = 256px; 475x296mm, 563mm viewing dist ######
 dr = (1680,1050) # display resolution in px
-#dr = (1366,768)
-#dd = (47.5,29.6) # display dimensions in cm
 dd = (29.5,16.6)
 ds = 49.5 # distance to screen in cm
+nFrames = 60
 
 # ====================================================================================
 # Converter functions:
@@ -77,80 +74,12 @@ def dg2px(dg,cm2px=cm2px,dg2cm=dg2cm):
 winSz = grtSize + 2
 winOffX = dg2px(winOffX)
 winOffY = dg2px(winOffY)
-fdbkLen = dg2px(fdbkLen)
 fixSz = dg2px(fixSz)
 posCentL = [-winOffX, winOffY]
 posCentR = [winOffX, winOffY]
 print winSz 
 print posCentL 
 print posCentR 
-print fdbkLen 
-
-# ====================================================================================
-# Eye tracking initialization
-
-if et:
-    import pylink as pl
-    #cp = (0.4,0.4) # calibration proportion
-    cd = 32
-
-    eyeLink = ("100.1.1.1")
-
-    displayInfo = pl.getDisplayInformation()
-    print displayInfo.width, displayInfo.height
-    screenCenter = (int(dr[0]/2), int(dr[1]/2))
-    calScreenCenter = (int(screenCenter[0]+winOffX),
-                    int(screenCenter[1]-winOffY))
-    calTargDist = int(winSz/3)
-    calTarg1 = calScreenCenter
-    calTarg2 = (int(calScreenCenter[0]-calTargDist), int(calScreenCenter[1]))
-    calTarg3 = (int(calScreenCenter[0]+calTargDist), int(calScreenCenter[1]))
-
-    def elEndRec(el):
-        # Ends the recording; adds 100ms to catch final events
-        pl.endRealTimeMode()
-        pl.pumpDelay(100)
-        el.stopRecording()
-
-    def eyeTrkInit (dr):
-        el = pl.EyeLink()
-        # sending the screen dimensions to the eye tracker:
-        el.sendCommand('screen_pixel_coords = 0 0 %d %d' %dr)
-        el.sendMessage('DISPLAY_COORDS 0 0 %d %d' %dr)
-        el.sendCommand('generate_default_targets = NO')
-        el.sendCommand('calibration_targets = %d,%d %d,%d %d,%d' % (
-                       calTarg1[0], calTarg1[1],
-                       calTarg2[0], calTarg2[1],
-                       calTarg3[0], calTarg3[1]) )
-        el.sendCommand('validation_targets = %d,%d %d,%d %d,%d' % (
-                       calTarg1[0], calTarg1[1],
-                       calTarg2[0], calTarg2[1],
-                       calTarg3[0], calTarg3[1]) )
-        # parser configuration 1 corresponds to high sensitivity to saccades:
-        el.sendCommand('select_parser_configuration 1')
-        # turns off "scenelink camera stuff", i.e., doesn't record the ET video
-        el.sendCommand('scene_camera_gazemap = NO')
-        # converting pupil area to diameter
-        el.sendCommand('pupil_size_diameter = %s'%('YES'))
-        return(el)
-    el = eyeTrkInit(dr)
-    print 'Finished initializing the eye tracker.'
-
-    def eyeTrkCalib (el=el,dr=dr,cd=cd):
-        # "opens the graphics if the display mode is not set"
-        pl.openGraphics(dr,cd)
-        pl.setCalibrationColors((255,255,255),(0,177,177))
-        pl.setTargetSize(10, 5) 
-        pl.setCalibrationSounds("","","")
-        el.setCalibrationType('H3')
-        pl.setDriftCorrectSounds("","off","off")
-        el.disableAutoCalibration()
-        el.doTrackerSetup()
-        el.drawCalTarget(calTarg1)
-        el.drawCalTarget(calTarg2)
-        el.drawCalTarget(calTarg3)
-        pl.closeGraphics()
-        el.setOfflineMode()
 
 # ====================================================================================
 # Setup the Window
@@ -164,45 +93,14 @@ else:
     frameDur = 1.0/60.0 # couldn't get a reliable measure so guess
 
 # ====================================================================================
-# Eye-tracking setup
-
-if et:
-    def etSetup(el=el,dr=dr,cd=cd):
-        blockLabel=visual.TextStim(win, text="Press spacebar", pos=posCentR,
-                                   color="white", bold=True, alignHoriz="center",
-                                   height=0.5)
-        notdone=True
-        while notdone:
-            blockLabel.draw()
-            win.flip()
-            keySpace = event.getKeys(keyList=['escape','space'])
-            if 'space' in keySpace:
-                print 'spacebar pressed'
-                eyeTrkCalib()
-                win.winHandle.activate()
-                print '///Finished calibration///'
-                notdone=False
-            elif 'escape' in keySpace:
-                print 'procedure terminated'
-                notdone=False
-    etSetup()
-
-    def drCor(el=el,dr=dr,cd=cd):
-        pl.openGraphics(dr,cd)
-        el.doDriftCorrect(calScreenCenter[0], calScreenCenter[1], 1, 0)
-        pl.closeGraphics()
-        print '///Finished drift correction///'
-
-# ====================================================================================
 
 # Store info about the experiment session
-expInfo = {u'session': u'', u'participant': u'', u'sat': u''}
+expInfo = {u'session': u'', u'participant': u''}
 dlg = gui.DlgFromDict(dictionary=expInfo, title=expName) # dialogue box
 if dlg.OK == False: core.quit()  # user pressed cancel
 timeNow = datetime.now()
 expInfo['time'] = datetime.now().strftime('%Y-%m-%d_%H%M')
 expInfo['expName'] = expName
-sat = expInfo['sat']
 
 # Data file name stem = absolute path + name; later add .psyexp, .csv, .log, etc
 if precompileMode:
@@ -212,15 +110,6 @@ fileName = '%s_p%s_s%s_%s' %(expName, expInfo['participant'], expInfo['session']
     expInfo['time'])
 filePath = dataDir + os.sep + fileName
 print filePath
-
-if et:
-    edfFileName = 'data.edf'
-    el.openDataFile(edfFileName)
-    el.sendCommand("file_event_filter = LEFT,RIGHT,FIXATION,SACCADE,BLINK,\
-                    MESSAGE,BUTTON,INPUT")
-    el.sendCommand("file_sample_data  = LEFT,RIGHT,GAZE,AREA,GAZERES,STATUS,\
-                    HTARGET,INPUT")
-    print '///set up the EDF file for eye-tracking///'
 
 # Condition-related variables
 conditionsFilePath = 'cond-files'+os.sep+'cond-'+expName+'.csv' #TEMP
@@ -262,38 +151,6 @@ fixL = visual.ShapeStim(win, pos=posCentL, vertices=((0,-fixSz), (0,fixSz), (0,0
 fixR = visual.ShapeStim(win, pos=posCentR, vertices=((0,-fixSz), (0,fixSz), (0,0), 
                                                      (-fixSz,0), (fixSz,0)),
                         lineWidth=.2, closeShape=False, lineColor='white')
-# question text:
-qntxtL = visual.TextStim(win=win,
-                         text='1=not stable\n2=not very stable\n3=almost stable\
-                               \n4=completely stable', font='Cambria', 
-                         pos=posCentL, height=dg2px(.55), wrapWidth=dg2px(4.5),
-                         color='white')
-qntxtR = visual.TextStim(win=win,
-                         text='1=not stable\n2=not very stable\n3=almost stable\
-                               \n4=completely stable', font='Cambria', 
-                         pos=posCentR, height=dg2px(.55), wrapWidth=dg2px(4.5),
-                         color='white')
-# feedback ring (for ct):
-ringSzDef = winSz/10
-ringL = visual.Polygon(win, edges=36, size=[ringSzDef, ringSzDef], ori=0, 
-                       pos=posCentL, lineWidth=winThickness, lineColor='red',
-                       opacity=.1, interpolate=True)
-ringR = visual.Polygon(win, edges=36, size=[ringSzDef, ringSzDef], ori=0, 
-                       pos=posCentR, lineWidth=winThickness, lineColor='red',
-                       opacity=.1, interpolate=True)
-# annuli (for fp):
-#annuOut1d = np.concatenate((np.tile(0,10), np.tile(1,10)))
-#annuOutL = visual.RadialStim(win, tex='sqrXsqr', pos=posCentL, size=[winSz,winSz],
-#                             mask=[0,1], color='white', radialCycles=0,
-#                             angularCycles=0)
-#annuOutR = visual.RadialStim(win, tex='sqrXsqr', pos=posCentR, size=[winSz,winSz],
-#                             mask=[0,1], color='white', radialCycles=0,
-#                             angularCycles=0)
-#annuIn1d = np.concatenate((np.tile(1,10), np.tile(0,10)))
-#annuInL = visual.RadialStim(win, tex='sqrXsqr', pos=posCentL, size=[winSz,winSz],
-#                            mask=[1,0], color='white', radialCycles=0, angularCycles=0)
-#annuInR = visual.RadialStim(win, tex='sqrXsqr', pos=posCentR, size=[winSz,winSz],
-#                            mask=[1,0], color='white', radialCycles=0, angularCycles=0)
 # pause text:
 pauseTextL = visual.TextStim(win, text='Press Spacebar to continue', font='Cambria',
                              alignHoriz='center', pos=posCentL, height=dg2px(.7),
@@ -349,25 +206,6 @@ dataFileName = filePath + os.sep + fileName + '.csv'
 
 # ====================================================================================
 # Various functions for use in trials:
-
-# Increase/decrease of the after-trial central motion task:
-def ringSz(ring, ringSzMulti):
-    sz = ring.size[1] + ringSzMulti * winSz / ringSteps
-    if sz > winSz:
-        sz = winSz
-    elif sz < winSz/ringSteps:
-        sz = ringSzDef
-    ring.setSize([sz,sz])
-    return ring
-
-def drawFdbkAngle(dirFdbk, lr, angle, winOffX=winOffX, winOffY=winOffY, winSz=winSz):
-    lineStart = [int( lr*winOffX + np.cos(np.radians(angle))*winSz/2 ),
-                 int( winOffY + np.sin(np.radians(angle))*winSz/2 )]
-    lineEnd = [int( lr*winOffX + np.cos(np.radians(angle)) * (winSz/2 + fdbkLen) ),
-               int( winOffY + np.sin(np.radians(angle)) * (winSz/2 + fdbkLen) )]
-    dirFdbk.start = lineStart
-    dirFdbk.end = lineEnd
-    return dirFdbk
 
 def sigmoid(x):
     return 1 / (1 + np.exp(-x))
@@ -447,13 +285,6 @@ for thisComponent in instructionsComponents:
     if hasattr(thisComponent, "setAutoDraw"):
         thisComponent.setAutoDraw(False)
 
-#win.winHandle.minimize()
-#win.flip()
-#drCor()
-#win.winHandle.maximize()
-#win.flip()
-#win.winHandle.activate()
-
 # ====================================================================================
 # Initiating the trial loop
 
@@ -462,9 +293,9 @@ for thisTrial in trials:
     print '===new=trial==='
     nDone += 1
     print 'trial#' + str(nDone)
-    dirL = thisTrial['dirL']
-    dirR = thisTrial['dirR']
-    print 'dirL=' + str(dirL) + '; dirR=' + str(dirR)
+    dirL = 0 #thisTrial['dirL']
+    dirR = 0 #thisTrial['dirR']
+    #print 'dirL=' + str(dirL) + '; dirR=' + str(dirR)
     vL = thisTrial['vL']
     vR = thisTrial['vR']
     print 'vL=' + str(vL) + '; vR=' + str(vR)
@@ -482,8 +313,6 @@ for thisTrial in trials:
     BsfL = thisTrial['BsfL']
     BsfR = thisTrial['BsfR']
     print 'BsfL=' + str(BsfL) + '; BsfR=' + str(BsfR)
-    centTask = thisTrial['centTask']
-    print 'centTask=' + str(centTask)
     fovGap = thisTrial['fovGap']
     fovFade = thisTrial['fovFade']
     print 'fovGap=' + str(fovGap) + '; fovFade=' + str(fovFade)
@@ -491,35 +320,21 @@ for thisTrial in trials:
     periFade = thisTrial['periFade']
     print 'periGap=' + str(periGap) + '; periFade=' + str(periFade)
     fixCross = thisTrial['fixCross']
-    stabQn = thisTrial['stabQn'] # do we need to ask the qn on rivalry stability?
-    colorEither = [[0,1,1],[120,sat,1]] # red/cyan or green/magenta
-    if thisTrial['colorL'] == 'rand': # picking one at random
-        colorPick = np.random.permutation(colorEither)
-        colorL = colorPick[0]
-        colorR = colorPick[1]
-    elif thisTrial['colorL'] == 'NA':
-        colorL = [0,0,0] # greyscale (black)
-        colorR = [0,0,0]
-    else:
-        colorL = colorEither[thisTrial['colorL']] # red if 1
-        colorR = colorEither[thisTrial['colorR']] # green if 1
-
-    trialT = thisTrial['trialT'] # -win.monitorFramePeriod*0.75
-    nFrames = 60 # number of frames per sequence
+    flickRate = thisTrial['flickRate']
     
-    # Creating an empty matrix for keeping the behavioural responses:
-    if trialT <= 1: # if short trial, response to be given at the end
-        behRespTrial = []
-    else: # for longer trials, enable continuous tracking:
-        behRespTrial = np.empty([1, trialT*nFrames]) 
-        behRespTrial[:] = np.NAN
-        
+    # Setting starting trial colors:
+    cv = thisTrial['colStart'] # color value
+    colStep = thisTrial['colStep']
+    print 'cv=' + str(cv) + '; colStep=' + str(colStep)
+    colOdd = [300,1,1] # blue
+    colEven = [0,cv,1] # red is adjusted and is assigned to gratings in even frames
+
     # initiating the gratings
     if precompileMode:
-        grtL = np.load(precompiledDir + os.sep + 'mc_' + str(vL) +
+        grtL = np.load(precompiledDir + os.sep + 'mc_' + '{0:.1f}'.format(vL) +
                '_sf' + str(sfL) + '_bsf' + str(BsfL) + '_bv' + str(BvL) + 
                '_sz' + str(szL) + '.npy')
-        grtR = np.load(precompiledDir + os.sep + 'mc_' + str(vR) +
+        grtR = np.load(precompiledDir + os.sep + 'mc_' + '{0:.1f}'.format(vR) +
                '_sf' + str(sfR) + '_bsf' + str(BsfR) + '_bv' + str(BvR) +
                '_sz' + str(szR) + '.npy')
     else:
@@ -540,14 +355,9 @@ for thisTrial in trials:
     frameN = -1
     tMaskMove = 0
     qnResp = 0
-    key_pressed = False
-    key_pause = False
-    if not stabQn and trialT > 1: # for longer trials with continous monitoring, no need to ask the qn:
-        key_qn = True
-    else: # for shorter trials, or trials that have stabQn explicitely enforced, ask:
-        key_qn = False
+    endTrialKeyPressed = False
     behRespRecorded = False
-    someKeyPressed = False # to prevent recording key releases at trial beginning
+    key_pause = False
     # update component parameters for each repeat
     key_arrow = event.BuilderKeyResponse()  # create an object of type KeyResponse
     key_arrow.status = NOT_STARTED
@@ -555,15 +365,6 @@ for thisTrial in trials:
     trialComponents = []
     trialComponents.append(winL)
     trialComponents.append(winR)
-    trialComponents.append(dirFdbkL)
-    trialComponents.append(dirFdbkR)
-    trialComponents.append(qntxtL)
-    trialComponents.append(qntxtR)
-    if centTask:
-        ringL.setSize([ringSzDef,ringSzDef])
-        ringR.setSize([ringSzDef,ringSzDef])
-        trialComponents.append(ringL)
-        trialComponents.append(ringR)
     trialComponents.append(key_arrow)
     trialComponents.append(pauseTextL)
     trialComponents.append(pauseTextR)
@@ -574,26 +375,15 @@ for thisTrial in trials:
         if hasattr(thisComponent, 'status'):
             thisComponent.status = NOT_STARTED
     
-    # ////////////////////////////////////////////////////////////////////////////////
-    #win.winHandle.minimize()
-    #drCor(el,dr,cd)
-    #win.winHandle.maximize()
-    #win.winHandle.activate()
-    if et:
-        el.sendMessage("TRIALID " + str(nDone))
-        trialStartStr = datetime.now().strftime('%Y-%m-%d_%H%M%S')
-        el.sendMessage("TIMESTAMP " + trialStartStr)
-        el.setOfflineMode()
-        pl.msecDelay(50) 
-        error = el.startRecording(1,1,1,1)
-    # ////////////////////////////////////////////////////////////////////////////////
-    
     #-------Start Routine "trial"-------
     continueRoutine = True
     while continueRoutine:
-        # get current time
+        
+        # get current time and set some frame variables:
         t = trialClock.getTime()
         frameN = frameN + 1 # number of completed frames (0 is the first frame)
+        oddFrame = (frameN//(nFrames/flickRate))%2 # yields 0 when even; 1 when odd
+
         # update/draw components on each frame
         
         # *winL* updates
@@ -613,21 +403,26 @@ for thisTrial in trials:
             winR.status = STARTED
 
         # stimulus presentation:
-        if t < trialT:
-            if not centTask:
-                curMask = combinedMask(fovGap, fovFade, periGap, periFade)
-            else:
-                curMask = 'circle'
-            stimL = visual.GratingStim(win, tex=grtL[:,:,frameN%nFrames], 
-                size=(grtSize,grtSize), pos=posCentL, 
-                interpolate=False, mask=curMask, ori=90+dirL,
-                color=colorL, colorSpace='hsv')
+        if not endTrialKeyPressed:
+            curMask = combinedMask(fovGap, fovFade, periGap, periFade)
+            # Checking if the frame is "even" or "odd" to deside whether to present red or blue grat:
+            if oddFrame:
+                #curCol = colOdd
+                #curCol = [120,1,1]
+                curCol = colOdd
+            else: # if even frame, adjust the color of red grating:
+                #curCol = [-red,red,-red]
+                #curCol = [0,1,1]
+                curCol = [0,cv,1]
+            # Drawing the gratings:
+            #stimL = visual.GratingStim(win, tex=grtL[:,:,frameN%nFrames], size=(grtSize,grtSize),
+            stimL = visual.GratingStim(win, tex=grtL[:,:,0], size=(grtSize,grtSize),
+                pos=posCentL, interpolate=False, mask=curMask, ori=90+dirL, color=curCol, colorSpace='hsv')
             stimL.draw()
-            stimR = visual.GratingStim(win, tex=grtR[:,:,frameN%nFrames], 
-                size=(grtSize,grtSize), pos=posCentR,
-                interpolate=False, mask=curMask, ori=90+dirR,
-                color=colorR, colorSpace='hsv')
+            stimR = visual.GratingStim(win, tex=grtR[:,:,0], size=(grtSize,grtSize),
+                pos=posCentR, interpolate=False, mask=curMask, ori=90+dirR, color=curCol, colorSpace='hsv')
             stimR.draw()
+            # Drawing the fixation cross:
             if fixCross:
                 fixL.draw()
                 fixR.draw()
@@ -642,153 +437,29 @@ for thisTrial in trials:
             key_arrow.clock.reset()  # now t=0
             event.clearEvents(eventType='keyboard')
             kb_device.clearEvents()
-        # registering the response continuously:
-        if key_arrow.status == STARTED and trialT > 1 and t < trialT:
-            thesePresses = kb_device.getPresses(keys=['left','right','up','down'])
-            theseReleases = kb_device.getReleases(keys=['left','right','up','down'])
-            if len(thesePresses) > 0:
-                dirFdbkL.setAutoDraw(True)
-                dirFdbkR.setAutoDraw(True)
-                keyPressFN = frameN
-                someKeyPressed = True
-                if 'left' in thesePresses:
-                    print '"left" key is pressed'
-                    drawFdbkAngle(dirFdbkL, -1, 180)
-                    drawFdbkAngle(dirFdbkR, 1, 180)
-                    whichKeyPressed = 'left' # only needed for final key press
-                elif 'right' in thesePresses:
-                    print '"right" key is pressed'
-                    drawFdbkAngle(dirFdbkL, -1, 0)
-                    drawFdbkAngle(dirFdbkR, 1, 0)
-                    whichKeyPressed = 'right'
-                elif 'up' in thesePresses:
-                    print '"up" key is pressed'
-                    drawFdbkAngle(dirFdbkL, -1, 90)
-                    drawFdbkAngle(dirFdbkR, 1, 90)
-                    whichKeyPressed = 'up'
-                elif 'down' in thesePresses:
-                    print '"down" key is pressed'
-                    drawFdbkAngle(dirFdbkL, -1, 270)
-                    drawFdbkAngle(dirFdbkR, 1, 270)
-                    whichKeyPressed = 'down'
-            if len(theseReleases) > 0 and someKeyPressed:
-                dirFdbkL.setAutoDraw(False)
-                dirFdbkR.setAutoDraw(False)
-                print '...released after ' + \
-                      str(np.around((frameN-keyPressFN)/60,2)) + 's'
-                someKeyPressed = False
-                if 'left' in theseReleases:
-                    behRespTrial[0,keyPressFN:frameN+1] = 180 # left
-                elif 'right' in theseReleases:
-                    behRespTrial[0,keyPressFN:frameN+1] = 0 # right
-                elif 'up' in theseReleases:
-                    behRespTrial[0,keyPressFN:frameN+1] = 90 # right
-                elif 'down' in theseReleases:
-                    behRespTrial[0,keyPressFN:frameN+1] = 270 # down
         # registering response at the end of the trial for short trials:
-        if key_arrow.status == STARTED and trialT <= 1 and t > trialT:
-            theseKeys = event.getKeys(keyList=['left','right','up','down'])
+        if key_arrow.status == STARTED and not endTrialKeyPressed:
+            theseKeys = event.getKeys(keyList=['up','down','space'])
             if len(theseKeys) > 0:
-                dirFdbkL.setAutoDraw(True)
-                dirFdbkR.setAutoDraw(True)
-                someKeyPressed = True
-                key_qn = True
-                if 'left' in theseKeys:
-                    print '"left" key is pressed'
-                    behRespTrial = 180
-                    drawFdbkAngle(dirFdbkL, -1, behRespTrial)
-                    drawFdbkAngle(dirFdbkR, 1, behRespTrial)
-                elif 'right' in theseKeys:
-                    print '"right" key is pressed'
-                    behRespTrial = 0
-                    drawFdbkAngle(dirFdbkL, -1, behRespTrial)
-                    drawFdbkAngle(dirFdbkR, 1, behRespTrial)
-                elif 'up' in theseKeys:
+                if 'up' in theseKeys:
                     print '"up" key is pressed'
-                    behRespTrial = 90
-                    drawFdbkAngle(dirFdbkL, -1, behRespTrial)
-                    drawFdbkAngle(dirFdbkR, 1, behRespTrial)
+                    # adjusting the red intensity:
+                    cv = cv + colStep
                 elif 'down' in theseKeys:
                     print '"down" key is pressed'
-                    behRespTrial = 270
-                    drawFdbkAngle(dirFdbkL, -1, behRespTrial)
-                    drawFdbkAngle(dirFdbkR, 1, behRespTrial)
-
-        # after-trial question about the trial stability
-        if ~key_qn and t > trialT and stabQn:
-            qntxtL.setAutoDraw(True)
-            qntxtR.setAutoDraw(True)
-            theseKeys = event.getKeys(keyList=['1','2','3','4'])
-            if len(theseKeys)>0:
-                if '1' in theseKeys:
-                    qnResp = 1
-                elif '2' in theseKeys:
-                    qnResp = 2
-                elif '3' in theseKeys:
-                    qnResp = 3
-                elif '4' in theseKeys:
-                    qnResp = 4
-                qntxtL.setAutoDraw(False)
-                qntxtR.setAutoDraw(False)
-                key_qn = True
-
-        # after-trial question about the extent of the central motion pattern:
-        if ~key_qn and t > trialT and centTask:
-            ringL.setAutoDraw(True)
-            ringR.setAutoDraw(True)
-            theseKeys = event.getKeys(keyList=['z','x',' '])
-            if len(theseKeys)>0:
-                if 'z' in theseKeys:
-                    ringL = ringSz(ringL, 1) # increase the ring size
-                    ringR = ringSz(ringR, 1)
-                elif 'x' in theseKeys:
-                    ringL = ringSz(ringL, -1) # decrease the ring size
-                    ringR = ringSz(ringR, -1)
-                elif ' ' in theseKeys:
-                    ringL.setAutoDraw(False)
-                    ringR.setAutoDraw(False)
-                    key_qn = True
+                    # adjusting the red intensity:
+                    cv = cv - colStep
+                elif 'space' in theseKeys:
+                    totFrames = frameN # how long it took for the viewer to adjust
+                    endTrialKeyPressed = True
 
         # pause text and data exporting
-        if key_qn and ~key_pause and t > trialT:
+        if endTrialKeyPressed:
             if not behRespRecorded: # a flag for data recording
-                # Make sure to record the release of a key at trial end
-                if someKeyPressed and not centTask and trialT>1:
-                    if whichKeyPressed == 'left':
-                        behRespTrial[0,keyPressFN:(trialT*nFrames)] = 180
-                    if whichKeyPressed == 'right':
-                        behRespTrial[0,keyPressFN:(trialT*nFrames)] = 0
-                    if whichKeyPressed == 'up':
-                        behRespTrial[0,keyPressFN:(trialT*nFrames)] = 90
-                    if whichKeyPressed == 'down':
-                        behRespTrial[0,keyPressFN:(trialT*nFrames)] = 270
-                    dirFdbkL.setAutoDraw(False)
-                    dirFdbkR.setAutoDraw(False)
-                    print '...released after ' + \
-                        str(np.around(((trialT*nFrames)-keyPressFN)/60,2)) + 's'
-                    print 'recorded post-trial response'
                 # Recording the responses:
                 behRespRecorded = True
                 pauseTextL.setAutoDraw(True)
                 pauseTextR.setAutoDraw(True)
-                # Computing and recording predominance:
-                if not centTask:
-                    nNa = np.count_nonzero(np.isnan(behRespTrial))
-                    nf000 = np.count_nonzero(behRespTrial==0)
-                    nf090 = np.count_nonzero(behRespTrial==90)
-                    nf180 = np.count_nonzero(behRespTrial==180)
-                    nf270 = np.count_nonzero(behRespTrial==270)
-                    #print nNa, nf000, nf090, nf180, nf270
-                else:
-                    nNa = 0
-                    nf000 = 0
-                    nf090 = 0
-                    nf180 = 0
-                    nf270 = 0
-                    if behRespTrial==0: nf000 = 1
-                    if behRespTrial==90: nf090 = 1
-                    if behRespTrial==180: nf180 = 1
-                    if behRespTrial==270: nf270 = 1
                 dT = pd.DataFrame({'expName': expName,
                                    'time': expInfo['time'],
                                    'participant': expInfo['participant'],
@@ -798,23 +469,15 @@ for thisTrial in trials:
                                    'vL': vL, 'vR': vR, 'szL': szL, 'szR': szR,
                                    'sfL': sfL, 'sfR': sfR, 'BvL': BvL, 'BvR': BvR,
                                    'BsfL': BsfL, 'BsfR': BsfR,
-                                   'colorL': str(colorL), 'colorR': str(colorR), 'sat': sat,
+                                   'colOdd': str(colOdd), 'colEven': str(colEven), 'colVal': cv,
                                    'fovGap': fovGap, 'fovFade': fovFade,
                                    'periGap': periGap, 'periFade': periFade,
-                                   'trialT': trialT, 'nFrames': nFrames, 'nNa': nNa,
-                                   'nf000': nf000, 'nf090': nf090, 'nf180': nf180, 'nf270': nf270,
-                                   'pd000': [nf000 / (trialT * nFrames)],
-                                   'pd090': [nf090 / (trialT * nFrames)],
-                                   'pd180': [nf180 / (trialT * nFrames)],
-                                   'pd270': [nf270 / (trialT * nFrames)],
-                                   'qnResp': qnResp, 'ringSz': ringL.size[0]})
+                                   'totFrames': [totFrames]}) # how long it took for viewer to adj
                 # to preserve the column order:
                 dataCols = ['expName', 'time', 'participant', 'session', 'trialN',
                             'dirL', 'dirR', 'vL', 'vR', 'szL', 'szR', 'sfL', 'sfR',
-                            'tfL', 'tfR', 'BsfL', 'BsfR', 'colorL', 'colorR', 'sat',
-                            'fovGap', 'fovFade', 'periGap', 'periFade',
-                            'trialT', 'nFrames', 'nNa', 'nf000', 'nf090', 'nf180', 'nf270', 
-                            'pd000', 'pd090', 'pd180', 'pd270', 'qnResp']
+                            'tfL', 'tfR', 'BsfL', 'BsfR', 'colOdd', 'colEven', 'colVal',
+                            'fovGap', 'fovFade', 'periGap', 'periFade', 'totFrames']
                 if nDone == 1:
                     df = dT
                 else:
@@ -829,7 +492,7 @@ for thisTrial in trials:
                 key_pause = True
 
         # *ISI* period
-        if ISI.status == NOT_STARTED and t>=trialT and key_pause:
+        if ISI.status == NOT_STARTED and endTrialKeyPressed and key_pause:
             # keep track of start time/frame for later
             ISI.tStart = t  # underestimates by a little under one frame
             ISI.frameNStart = frameN  # exact frame index
