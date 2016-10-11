@@ -25,8 +25,8 @@ _thisDir = os.path.dirname(os.path.abspath(__file__))
 
 # ====================================================================================
 ## Initial variables.
-et = 0
-expName = 'mcvfp' # v=velocity, bsf = SF bandwidth, fp = foveal/peripheral, ct = central task
+et = 1
+expName = 'mcvfg' # v=velocity, bsf = SF bandwidth, fp = foveal/peripheral, ct = central task # fg = foveal/gap
 # Window circles (specified in degrees of visual angles [dva]):
 #winSz = 7.2 # 5.03; calculated as 5/x=sqrt(2)/2 => x=10/sqrt(2)
 winOffX = 6 # 5.62
@@ -49,6 +49,7 @@ dr = (1680,1050) # display resolution in px
 #dd = (47.5,29.6) # display dimensions in cm
 dd = (29.5,16.6)
 ds = 49.5 # distance to screen in cm
+trialNfb = True # do we give the trial number feedback?
 
 # ====================================================================================
 # Converter functions:
@@ -154,7 +155,7 @@ if et:
 
 # ====================================================================================
 # Store info about the experiment session
-expInfo = {u'session': u'', u'participant': u'', u'sat': u''}
+expInfo = {u'session': u'', u'participant': u'', u'sat': .9}
 dlg = gui.DlgFromDict(dictionary=expInfo, title=expName) # dialogue box
 if dlg.OK == False: core.quit()  # user pressed cancel
 timeNow = datetime.now()
@@ -262,6 +263,11 @@ fixL = visual.ShapeStim(win, pos=posCentL, vertices=((0,-fixSz), (0,fixSz), (0,0
 fixR = visual.ShapeStim(win, pos=posCentR, vertices=((0,-fixSz), (0,fixSz), (0,0), 
                                                      (-fixSz,0), (fixSz,0)),
                         lineWidth=.2, closeShape=False, lineColor='white')
+# Trial number feedback:
+if trialNfb:
+    trialNfbText = visual.TextStim(win=win, text='', font='Cambria', 
+                                   pos=(0,0), height=dg2px(.55), wrapWidth=dg2px(4.5),
+                                   color='white')
 # question text:
 qntxtL = visual.TextStim(win=win,
                          text='1=not stable\n2=not very stable\n3=almost stable\
@@ -448,6 +454,8 @@ nDone=0
 for thisTrial in trials:
     print '===new=trial==='
     nDone += 1
+    if trialNfb:
+        trialNfbText.text = str(nDone) + '/' + str(trials.nTotal)
     print 'trial#' + str(nDone)
     dirL = thisTrial['dirL']
     dirR = thisTrial['dirR']
@@ -603,6 +611,9 @@ for thisTrial in trials:
             winR.frameNStart = frameN  # exact frame index
             winR.setAutoDraw(True)
             winR.status = STARTED
+
+        if trialNfb:
+            trialNfbText.draw()
 
         # stimulus presentation:
         if t < trialT:
