@@ -153,6 +153,15 @@ if et:
         el.setOfflineMode()
 
 # ====================================================================================
+# Store info about the experiment session
+expInfo = {u'session': u'', u'participant': u'', u'sat': u''}
+dlg = gui.DlgFromDict(dictionary=expInfo, title=expName) # dialogue box
+if dlg.OK == False: core.quit()  # user pressed cancel
+timeNow = datetime.now()
+expInfo['time'] = datetime.now().strftime('%Y-%m-%d_%H%M')
+expInfo['expName'] = expName
+sat = expInfo['sat']
+
 # Setup the Window
 win = visual.Window(size=dr, fullscr=True, screen=0, allowGUI=False, 
       allowStencil=False, color='grey', blendMode='avg', useFBO=True, units='pix')
@@ -194,15 +203,6 @@ if et:
         print '///Finished drift correction///'
 
 # ====================================================================================
-
-# Store info about the experiment session
-expInfo = {u'session': u'', u'participant': u'', u'sat': u''}
-dlg = gui.DlgFromDict(dictionary=expInfo, title=expName) # dialogue box
-if dlg.OK == False: core.quit()  # user pressed cancel
-timeNow = datetime.now()
-expInfo['time'] = datetime.now().strftime('%Y-%m-%d_%H%M')
-expInfo['expName'] = expName
-sat = expInfo['sat']
 
 # Data file name stem = absolute path + name; later add .psyexp, .csv, .log, etc
 if precompileMode:
@@ -281,19 +281,6 @@ ringL = visual.Polygon(win, edges=36, size=[ringSzDef, ringSzDef], ori=0,
 ringR = visual.Polygon(win, edges=36, size=[ringSzDef, ringSzDef], ori=0, 
                        pos=posCentR, lineWidth=winThickness, lineColor='red',
                        opacity=.1, interpolate=True)
-# annuli (for fp):
-#annuOut1d = np.concatenate((np.tile(0,10), np.tile(1,10)))
-#annuOutL = visual.RadialStim(win, tex='sqrXsqr', pos=posCentL, size=[winSz,winSz],
-#                             mask=[0,1], color='white', radialCycles=0,
-#                             angularCycles=0)
-#annuOutR = visual.RadialStim(win, tex='sqrXsqr', pos=posCentR, size=[winSz,winSz],
-#                             mask=[0,1], color='white', radialCycles=0,
-#                             angularCycles=0)
-#annuIn1d = np.concatenate((np.tile(1,10), np.tile(0,10)))
-#annuInL = visual.RadialStim(win, tex='sqrXsqr', pos=posCentL, size=[winSz,winSz],
-#                            mask=[1,0], color='white', radialCycles=0, angularCycles=0)
-#annuInR = visual.RadialStim(win, tex='sqrXsqr', pos=posCentR, size=[winSz,winSz],
-#                            mask=[1,0], color='white', radialCycles=0, angularCycles=0)
 # pause text:
 pauseTextL = visual.TextStim(win, text='Press Spacebar to continue', font='Cambria',
                              alignHoriz='center', pos=posCentL, height=dg2px(.7),
@@ -492,7 +479,7 @@ for thisTrial in trials:
     print 'periGap=' + str(periGap) + '; periFade=' + str(periFade)
     fixCross = thisTrial['fixCross']
     stabQn = thisTrial['stabQn'] # do we need to ask the qn on rivalry stability?
-    colorEither = [[0,1,1],[120,sat,1]] # red/cyan or green/magenta
+    colorEither = [[0,sat,1],[120,1,1]] # red/cyan or green/magenta
     if thisTrial['colorL'] == 'rand': # picking one at random
         colorPick = np.random.permutation(colorEither)
         colorL = colorPick[0]
@@ -501,8 +488,13 @@ for thisTrial in trials:
         colorL = [0,0,0] # greyscale (black)
         colorR = [0,0,0]
     else:
-        colorL = colorEither[thisTrial['colorL']] # red if 1
-        colorR = colorEither[thisTrial['colorR']] # green if 1
+        # color for eye = color for direction:
+        if dirL == 180 and dirR == 0:
+            colorL = colorEither[thisTrial['colDirL']]
+            colorR = colorEither[thisTrial['colDirR']]
+        if dirL == 0 and dirR == 180:
+            colorR = colorEither[thisTrial['colDirL']]
+            colorL = colorEither[thisTrial['colDirR']]
 
     trialT = thisTrial['trialT'] # -win.monitorFramePeriod*0.75
     nFrames = 60 # number of frames per sequence
