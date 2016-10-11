@@ -480,11 +480,11 @@ for thisTrial in trials:
     fixCross = thisTrial['fixCross']
     stabQn = thisTrial['stabQn'] # do we need to ask the qn on rivalry stability?
     colorEither = [[0,sat,1],[120,1,1]] # red/cyan or green/magenta
-    if thisTrial['colorL'] == 'rand': # picking one at random
+    if thisTrial['colDirL'] == 'rand': # picking one at random
         colorPick = np.random.permutation(colorEither)
         colorL = colorPick[0]
         colorR = colorPick[1]
-    elif thisTrial['colorL'] == 'NA':
+    elif thisTrial['colDirL'] == 'NA':
         colorL = [0,0,0] # greyscale (black)
         colorR = [0,0,0]
     else:
