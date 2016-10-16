@@ -25,8 +25,8 @@ _thisDir = os.path.dirname(os.path.abspath(__file__))
 
 # ====================================================================================
 ## Initial variables.
-et = 1
-expName = 'mcvfg' # v=velocity, bsf = SF bandwidth, fp = foveal/peripheral, ct = central task # fg = foveal/gap
+et = 0
+expName = 'mcvct' # v=velocity, bsf = SF bandwidth, fp = foveal/peripheral, ct = central task # fg = foveal/gap
 # Window circles (specified in degrees of visual angles [dva]):
 #winSz = 7.2 # 5.03; calculated as 5/x=sqrt(2)/2 => x=10/sqrt(2)
 winOffX = 6 # 5.62
@@ -40,6 +40,7 @@ fixSz = .15
 # MCs:
 precompileMode = 1 # get the precompiled MCs
 grtSize = 256 # size of 256 is 71mm, or 7.2dova
+defAlpha = .2
 # Ring steps (for ct):
 ringSteps = 7
 # Dimensions:
@@ -155,13 +156,13 @@ if et:
 
 # ====================================================================================
 # Store info about the experiment session
-expInfo = {u'session': u'', u'participant': u'', u'sat': .9}
+expInfo = {u'session': u'', u'participant': u'', u'sat': .29}
 dlg = gui.DlgFromDict(dictionary=expInfo, title=expName) # dialogue box
 if dlg.OK == False: core.quit()  # user pressed cancel
 timeNow = datetime.now()
 expInfo['time'] = datetime.now().strftime('%Y-%m-%d_%H%M')
 expInfo['expName'] = expName
-sat = expInfo['sat']
+sat = expInfo['sat'] # saturation for color 'red'
 
 # Setup the Window
 win = visual.Window(size=dr, fullscr=True, screen=0, allowGUI=False, 
@@ -251,6 +252,11 @@ winL = visual.Polygon(win, edges=36, size=[winSz, winSz], pos=posCentL,
                       lineWidth=winThickness, lineColor='white')
 winR = visual.Polygon(win, edges=36, size=[winSz, winSz], pos=posCentR,
                       lineWidth=winThickness, lineColor='white')
+# color masks:
+colMaskL = visual.GratingStim(win, size=[grtSize, grtSize], pos=posCentL, opacity=defAlpha,
+                              colorSpace='hsv')
+colMaskR = visual.GratingStim(win, size=[grtSize, grtSize], pos=posCentR, opacity=defAlpha,
+                              colorSpace='hsv')
 # direction feedback:
 dirFdbkL = visual.Line(win, start=[0,0], end=[0,0], lineColor='white',
                         lineWidth=fdbkThick)
@@ -487,7 +493,7 @@ for thisTrial in trials:
     print 'periGap=' + str(periGap) + '; periFade=' + str(periFade)
     fixCross = thisTrial['fixCross']
     stabQn = thisTrial['stabQn'] # do we need to ask the qn on rivalry stability?
-    colorEither = [[0,sat,1],[120,1,1]] # red/cyan or green/magenta
+    colorEither = [[150,1,1],[330,sat,1]] # green and magenta
     if thisTrial['colDirL'] == 'rand': # picking one at random
         colorPick = np.random.permutation(colorEither)
         colorL = colorPick[0]
@@ -496,13 +502,14 @@ for thisTrial in trials:
         colorL = [0,0,0] # greyscale (black)
         colorR = [0,0,0]
     else:
-        # color for eye = color for direction:
+        # color for eye <- color for direction:
         if dirL == 180 and dirR == 0:
-            colorL = colorEither[thisTrial['colDirL']]
+            colorL = colorEither[thisTrial['colDirL']] # if colDirL==0, green [0], magenta if 1
             colorR = colorEither[thisTrial['colDirR']]
         if dirL == 0 and dirR == 180:
-            colorR = colorEither[thisTrial['colDirL']]
             colorL = colorEither[thisTrial['colDirR']]
+            colorR = colorEither[thisTrial['colDirL']]
+    print 'colorL = ' + str(colorL) + '; colorR = ' + str(colorR)
 
     trialT = thisTrial['trialT'] # -win.monitorFramePeriod*0.75
     nFrames = 60 # number of frames per sequence
@@ -533,6 +540,17 @@ for thisTrial in trials:
         grtR = 2*mc.rectif(mc.random_cloud(grtCol * 
                mc.envelope_gabor(fx, fy, ft, sf_0=sfR, B_sf=BsfR, B_V=BvR,
                V_X=vR, B_theta=np.inf))) - 1
+
+    # Creating a mask, which is fixed for a given trial:
+    curMask = combinedMask(fovGap, fovFade, periGap, periFade)
+
+    # Using the mask to assign both the greyscale values and the mask for our color masks:
+    colMaskL.tex = (curMask + 1) / 2
+    colMaskL.color = colorL
+    colMaskL.mask = curMask
+    colMaskR.tex = (curMask + 1) / 2
+    colMaskR.color = colorR
+    colMaskR.mask = curMask
 
     #------Prepare to start Routine "trial"-------
     t = 0
@@ -617,20 +635,18 @@ for thisTrial in trials:
 
         # stimulus presentation:
         if t < trialT:
-            if not centTask:
-                curMask = combinedMask(fovGap, fovFade, periGap, periFade)
-            else:
-                curMask = 'circle'
             stimL = visual.GratingStim(win, tex=grtL[:,:,frameN%nFrames], 
                 size=(grtSize,grtSize), pos=posCentL, 
-                interpolate=False, mask=curMask, ori=90+dirL,
-                color=colorL, colorSpace='hsv')
+                interpolate=False, mask=curMask, ori=90+dirL)
             stimL.draw()
             stimR = visual.GratingStim(win, tex=grtR[:,:,frameN%nFrames], 
                 size=(grtSize,grtSize), pos=posCentR,
-                interpolate=False, mask=curMask, ori=90+dirR,
-                color=colorR, colorSpace='hsv')
+                interpolate=False, mask=curMask, ori=90+dirR)
             stimR.draw()
+            # Drawing the color masks:
+            colMaskL.draw()
+            colMaskR.draw()
+            # Drawing the fixation cross, if any:
             if fixCross:
                 fixL.draw()
                 fixR.draw()

@@ -40,6 +40,7 @@ fixSz = .15
 # MCs:
 precompileMode = 1 # get the precompiled MCs
 grtSize = 256 # size of 256 is 71mm, or 7.2dova
+defAlpha = .2 # default alpha
 # Dimensions:
 ###### 7.2dova = 71mm = 256px; 475x296mm, 563mm viewing dist ######
 dr = (1680,1050) # display resolution in px
@@ -139,6 +140,11 @@ winL = visual.Polygon(win, edges=36, size=[winSz, winSz], pos=posCentL,
                       lineWidth=winThickness, lineColor='white')
 winR = visual.Polygon(win, edges=36, size=[winSz, winSz], pos=posCentR,
                       lineWidth=winThickness, lineColor='white')
+# color masks:
+colMaskL = visual.GratingStim(win, size=[grtSize, grtSize], pos=posCentL, opacity=defAlpha,
+                              colorSpace='hsv')
+colMaskR = visual.GratingStim(win, size=[grtSize, grtSize], pos=posCentR, opacity=defAlpha,
+                              colorSpace='hsv')
 # direction feedback:
 dirFdbkL = visual.Line(win, start=[0,0], end=[0,0], lineColor='white',
                         lineWidth=fdbkThick)
@@ -323,11 +329,11 @@ for thisTrial in trials:
     flickRate = thisTrial['flickRate']
     
     # Setting starting trial colors:
-    cv = thisTrial['colStart'] # color value
-    colStep = thisTrial['colStep']
-    print 'cv=' + str(cv) + '; colStep=' + str(colStep)
-    colOdd = [300,1,1] # blue
-    colEven = [0,cv,1] # red is adjusted and is assigned to gratings in even frames
+    sat = thisTrial['colStart'] # alpha value
+    colStep = thisTrial['colStep'] # alpha step
+    print 'sat=' + str(sat) + '; colStep=' + str(colStep)
+    colOdd = [150,1,1] # green
+    colEven = [330,sat,1] # red is adjusted and is assigned to gratings in even frames
 
     # initiating the gratings
     if precompileMode:
@@ -348,6 +354,15 @@ for thisTrial in trials:
         grtR = 2*mc.rectif(mc.random_cloud(grtCol * 
                mc.envelope_gabor(fx, fy, ft, sf_0=sfR, B_sf=BsfR, B_V=BvR,
                V_X=vR, B_theta=np.inf))) - 1
+
+    # Creating a mask, which is fixed for a given trial:
+    curMask = combinedMask(fovGap, fovFade, periGap, periFade)
+
+    # Using the mask to assign both the greyscale values and the mask for our color masks:
+    colMaskL.tex = (curMask + 1)/2
+    colMaskL.mask = curMask
+    colMaskR.tex = (curMask + 1)/2
+    colMaskR.mask = curMask
 
     #------Prepare to start Routine "trial"-------
     t = 0
@@ -404,24 +419,24 @@ for thisTrial in trials:
 
         # stimulus presentation:
         if not endTrialKeyPressed:
-            curMask = combinedMask(fovGap, fovFade, periGap, periFade)
             # Checking if the frame is "even" or "odd" to deside whether to present red or blue grat:
             if oddFrame:
-                #curCol = colOdd
-                #curCol = [120,1,1]
                 curCol = colOdd
             else: # if even frame, adjust the color of red grating:
-                #curCol = [-red,red,-red]
-                #curCol = [0,1,1]
-                curCol = [0,cv,1]
+                curCol = [330,sat,1]
             # Drawing the gratings:
             #stimL = visual.GratingStim(win, tex=grtL[:,:,frameN%nFrames], size=(grtSize,grtSize),
             stimL = visual.GratingStim(win, tex=grtL[:,:,0], size=(grtSize,grtSize),
-                pos=posCentL, interpolate=False, mask=curMask, ori=90+dirL, color=curCol, colorSpace='hsv')
+                pos=posCentL, interpolate=False, mask=curMask, ori=90+dirL)
             stimL.draw()
             stimR = visual.GratingStim(win, tex=grtR[:,:,0], size=(grtSize,grtSize),
-                pos=posCentR, interpolate=False, mask=curMask, ori=90+dirR, color=curCol, colorSpace='hsv')
+                pos=posCentR, interpolate=False, mask=curMask, ori=90+dirR)
             stimR.draw()
+            # Drawing the color masks:
+            colMaskL.color = curCol
+            colMaskL.draw()
+            colMaskR.color = curCol
+            colMaskR.draw()
             # Drawing the fixation cross:
             if fixCross:
                 fixL.draw()
@@ -443,13 +458,18 @@ for thisTrial in trials:
             if len(theseKeys) > 0:
                 if 'up' in theseKeys:
                     print '"up" key is pressed'
-                    # adjusting the red intensity:
-                    cv = cv + colStep
+                    # adjusting the red intensity/saturation:
+                    sat = sat + colStep
+                    ## adjusting the red alpha-value:
+                    #av = av + colStep
                 elif 'down' in theseKeys:
                     print '"down" key is pressed'
-                    # adjusting the red intensity:
-                    cv = cv - colStep
+                    # adjusting the red intensity/saturation:
+                    sat = sat - colStep
+                    ## adjusting the red alpha-value:
+                    #av = av - colStep
                 elif 'space' in theseKeys:
+                    print 'equiluminance set at ' + str(sat)
                     totFrames = frameN # how long it took for the viewer to adjust
                     endTrialKeyPressed = True
 
@@ -469,14 +489,14 @@ for thisTrial in trials:
                                    'vL': vL, 'vR': vR, 'szL': szL, 'szR': szR,
                                    'sfL': sfL, 'sfR': sfR, 'BvL': BvL, 'BvR': BvR,
                                    'BsfL': BsfL, 'BsfR': BsfR,
-                                   'colOdd': str(colOdd), 'colEven': str(colEven), 'colVal': cv,
+                                   'colOdd': str(colOdd), 'colEven': str(colEven), 'sat': sat,
                                    'fovGap': fovGap, 'fovFade': fovFade,
                                    'periGap': periGap, 'periFade': periFade,
                                    'totFrames': [totFrames]}) # how long it took for viewer to adj
                 # to preserve the column order:
                 dataCols = ['expName', 'time', 'participant', 'session', 'trialN',
                             'dirL', 'dirR', 'vL', 'vR', 'szL', 'szR', 'sfL', 'sfR',
-                            'tfL', 'tfR', 'BsfL', 'BsfR', 'colOdd', 'colEven', 'colVal',
+                            'tfL', 'tfR', 'BsfL', 'BsfR', 'colOdd', 'colEven', 'sat',
                             'fovGap', 'fovFade', 'periGap', 'periFade', 'totFrames']
                 if nDone == 1:
                     df = dT
