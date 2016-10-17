@@ -25,7 +25,7 @@ _thisDir = os.path.dirname(os.path.abspath(__file__))
 
 # ====================================================================================
 ## Initial variables.
-et = 0
+et = 1
 expName = 'mcvct' # v=velocity, bsf = SF bandwidth, fp = foveal/peripheral, ct = central task # fg = foveal/gap
 # Window circles (specified in degrees of visual angles [dva]):
 #winSz = 7.2 # 5.03; calculated as 5/x=sqrt(2)/2 => x=10/sqrt(2)
@@ -156,7 +156,7 @@ if et:
 
 # ====================================================================================
 # Store info about the experiment session
-expInfo = {u'session': u'', u'participant': u'', u'sat': .29}
+expInfo = {u'session': u'', u'participant': u'', u'sat': .39}
 dlg = gui.DlgFromDict(dictionary=expInfo, title=expName) # dialogue box
 if dlg.OK == False: core.quit()  # user pressed cancel
 timeNow = datetime.now()
@@ -498,7 +498,7 @@ for thisTrial in trials:
         colorPick = np.random.permutation(colorEither)
         colorL = colorPick[0]
         colorR = colorPick[1]
-    elif thisTrial['colDirL'] == 'NA':
+    elif thisTrial['colDirL'] == thisTrial['colDirR']:
         colorL = [0,0,0] # greyscale (black)
         colorR = [0,0,0]
     else:
@@ -545,12 +545,13 @@ for thisTrial in trials:
     curMask = combinedMask(fovGap, fovFade, periGap, periFade)
 
     # Using the mask to assign both the greyscale values and the mask for our color masks:
-    colMaskL.tex = (curMask + 1) / 2
-    colMaskL.color = colorL
-    colMaskL.mask = curMask
-    colMaskR.tex = (curMask + 1) / 2
-    colMaskR.color = colorR
-    colMaskR.mask = curMask
+    if not colorL == colorR: # same colors mean no color mask
+        colMaskL.tex = (curMask + 1) / 2
+        colMaskL.color = colorL
+        colMaskL.mask = curMask
+        colMaskR.tex = (curMask + 1) / 2
+        colMaskR.color = colorR
+        colMaskR.mask = curMask
 
     #------Prepare to start Routine "trial"-------
     t = 0
@@ -644,8 +645,9 @@ for thisTrial in trials:
                 interpolate=False, mask=curMask, ori=90+dirR)
             stimR.draw()
             # Drawing the color masks:
-            colMaskL.draw()
-            colMaskR.draw()
+            if not colorL == colorR: # same colors mean no color mask
+                colMaskL.draw()
+                colMaskR.draw()
             # Drawing the fixation cross, if any:
             if fixCross:
                 fixL.draw()
