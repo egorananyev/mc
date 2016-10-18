@@ -25,8 +25,8 @@ _thisDir = os.path.dirname(os.path.abspath(__file__))
 
 # ====================================================================================
 ## Initial variables.
-et = 1
-expName = 'mcvct' # v=velocity, bsf = SF bandwidth, fp = foveal/peripheral, ct = central task # fg = foveal/gap
+et = 0
+expName = 'mcvct_bv0' # v=velocity, bsf = SF bandwidth, fp = foveal/peripheral, ct = central task # fg = foveal/gap
 # Window circles (specified in degrees of visual angles [dva]):
 #winSz = 7.2 # 5.03; calculated as 5/x=sqrt(2)/2 => x=10/sqrt(2)
 winOffX = 6 # 5.62
@@ -156,7 +156,7 @@ if et:
 
 # ====================================================================================
 # Store info about the experiment session
-expInfo = {u'session': u'', u'participant': u'', u'sat': .39}
+expInfo = {u'session': u'', u'participant': u'', u'sat': 0}
 dlg = gui.DlgFromDict(dictionary=expInfo, title=expName) # dialogue box
 if dlg.OK == False: core.quit()  # user pressed cancel
 timeNow = datetime.now()
@@ -832,10 +832,10 @@ for thisTrial in trials:
                 # to preserve the column order:
                 dataCols = ['expName', 'time', 'participant', 'session', 'trialN',
                             'dirL', 'dirR', 'vL', 'vR', 'szL', 'szR', 'sfL', 'sfR',
-                            'tfL', 'tfR', 'BsfL', 'BsfR', 'colorL', 'colorR', 'sat',
-                            'fovGap', 'fovFade', 'periGap', 'periFade',
+                            'tfL', 'tfR', 'BvL', 'BvR', 'BsfL', 'BsfR', 'colorL', 'colorR',
+                            'sat', 'fovGap', 'fovFade', 'periGap', 'periFade',
                             'trialT', 'nFrames', 'nNa', 'nf000', 'nf090', 'nf180', 'nf270', 
-                            'pd000', 'pd090', 'pd180', 'pd270', 'qnResp']
+                            'pd000', 'pd090', 'pd180', 'pd270', 'qnResp', 'ringSz']
                 if nDone == 1:
                     df = dT
                 else:

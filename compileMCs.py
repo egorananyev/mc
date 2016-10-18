@@ -32,7 +32,7 @@ if not os.path.exists(precompiledDir):
     os.makedirs(precompiledDir)
 
 # Input directory:
-conditionsFilePath = 'cond-files'+os.sep+'cond-mcbsf'+'.csv'
+conditionsFilePath = 'cond-files' + os.sep + 'cond-mcvct_bv0.csv'
 print conditionsFilePath
 
 # Setting up the conditions:
@@ -44,8 +44,9 @@ for thisCondition in condList:
     thisSf = thisCondition['sfL']
     thisBsf = thisCondition['BsfL']
     thisV = thisCondition['vL']
+    thisBv = thisCondition['BvL']
     grtName = precompiledDir + os.sep + 'mc_' + str(thisV) + '_sf' + str(thisSf) + \
-        '_bsf' + str(thisBsf) + '_sz' + str(grtSz)
+        '_bsf' + str(thisBsf) + '_bv' + str(thisBv) + '_sz' + str(grtSz)
     if grtName not in grtList:
         grtList.append(grtName)
         # compiling the gratings:
@@ -54,7 +55,7 @@ for thisCondition in condList:
         fx, fy, ft = mc.get_grids(szX, szY, nFrames)
         grtCol = mc.envelope_color(fx, fy, ft)
         z = mc.envelope_gabor(fx, fy, ft, sf_0=thisSf, B_sf=thisBsf,
-            V_X=thisV, B_theta=np.inf)
+            V_X=thisV, B_V=thisBv, B_theta=np.inf)
         zcl = mc.random_cloud(grtCol * z)
         grtL = 2*mc.rectif(zcl) - 1
         # saving the gratings:
