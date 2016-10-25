@@ -29,7 +29,7 @@ et = 1
 expName = 'mcvct' # v=velocity, bsf = SF bandwidth, fp = foveal/peripheral, ct = central task # fg = foveal/gap
 # Window circles (specified in degrees of visual angles [dva]):
 #winSz = 7.2 # 5.03; calculated as 5/x=sqrt(2)/2 => x=10/sqrt(2)
-winOffX = 6 # 5.62
+winOffX = 4.25 # 6 # 5.62
 winOffY = 3.5 # 5.5 (3.5cm ~= 124px)
 winThickness = 2 # in pixels
 fdbkLen = .5 # the length of the feedback line, in degrees
