@@ -25,8 +25,8 @@ _thisDir = os.path.dirname(os.path.abspath(__file__))
 
 # ====================================================================================
 ## Initial variables.
-et = 0
-expName = 'mcvct_bv0' # v=velocity, bsf = SF bandwidth, fp = foveal/peripheral, ct = central task # fg = foveal/gap
+et = 1
+expName = 'mcvct' # v=velocity, bsf = SF bandwidth, fp = foveal/peripheral, ct = central task # fg = foveal/gap
 # Window circles (specified in degrees of visual angles [dva]):
 #winSz = 7.2 # 5.03; calculated as 5/x=sqrt(2)/2 => x=10/sqrt(2)
 winOffX = 6 # 5.62
@@ -755,10 +755,10 @@ for thisTrial in trials:
 
         # after-trial question about the extent of the central motion pattern:
         if ~key_qn and t > trialT and centTask:
-            ringL.setAutoDraw(True)
-            ringR.setAutoDraw(True)
             theseKeys = event.getKeys(keyList=['z','x',' '])
             if len(theseKeys)>0:
+                ringL.setAutoDraw(True)
+                ringR.setAutoDraw(True)
                 if 'z' in theseKeys:
                     ringL = ringSz(ringL, 1) # increase the ring size
                     ringR = ringSz(ringR, 1)
