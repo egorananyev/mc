@@ -25,8 +25,8 @@ _thisDir = os.path.dirname(os.path.abspath(__file__))
 
 # ====================================================================================
 ## Initial variables.
-et = 1
-expName = 'mcvct' # v=velocity, bsf = SF bandwidth, fp = foveal/peripheral, ct = central task # fg = foveal/gap
+et = 0
+expName = 'mcvct_bv_test' # v=velocity, bsf = SF bandwidth, fp = foveal/peripheral, ct = central task # fg = foveal/gap
 # Window circles (specified in degrees of visual angles [dva]):
 #winSz = 7.2 # 5.03; calculated as 5/x=sqrt(2)/2 => x=10/sqrt(2)
 winOffX = 4.25 # 6 # 5.62
@@ -156,7 +156,7 @@ if et:
 
 # ====================================================================================
 # Store info about the experiment session
-expInfo = {u'session': u'', u'participant': u'', u'sat': 0}
+expInfo = {u'session': u'', u'participant': u'', u'sat': 0.5}
 dlg = gui.DlgFromDict(dictionary=expInfo, title=expName) # dialogue box
 if dlg.OK == False: core.quit()  # user pressed cancel
 timeNow = datetime.now()
@@ -471,26 +471,26 @@ for thisTrial in trials:
     print 'vL=' + str(vL) + '; vR=' + str(vR)
     szL = thisTrial['szL']
     szR = thisTrial['szR']
-    print 'szL=' + str(szL) + '; szR=' + str(szR)
+    #print 'szL=' + str(szL) + '; szR=' + str(szR)
     sfL = thisTrial['sfL']
     sfR = thisTrial['sfR']
-    print 'sfL=' + str(sfL) + '; sfR=' + str(sfR)
+    #print 'sfL=' + str(sfL) + '; sfR=' + str(sfR)
     BvL = thisTrial['BvL']
     BvR = thisTrial['BvR']
     if BvL == 'NA': BvL = .5 # default value
     if BvR == 'NA': BvR = .5
-    print 'BvL=' + str(BvL) + '; BvR=' + str(BvR)
+    #print 'BvL=' + str(BvL) + '; BvR=' + str(BvR)
     BsfL = thisTrial['BsfL']
     BsfR = thisTrial['BsfR']
-    print 'BsfL=' + str(BsfL) + '; BsfR=' + str(BsfR)
+    #print 'BsfL=' + str(BsfL) + '; BsfR=' + str(BsfR)
     centTask = thisTrial['centTask']
-    print 'centTask=' + str(centTask)
+    #print 'centTask=' + str(centTask)
     fovGap = thisTrial['fovGap']
     fovFade = thisTrial['fovFade']
-    print 'fovGap=' + str(fovGap) + '; fovFade=' + str(fovFade)
+    #print 'fovGap=' + str(fovGap) + '; fovFade=' + str(fovFade)
     periGap = thisTrial['periGap']
     periFade = thisTrial['periFade']
-    print 'periGap=' + str(periGap) + '; periFade=' + str(periFade)
+    #print 'periGap=' + str(periGap) + '; periFade=' + str(periFade)
     fixCross = thisTrial['fixCross']
     stabQn = thisTrial['stabQn'] # do we need to ask the qn on rivalry stability?
     colorEither = [[150,1,1],[330,sat,1]] # green and magenta
@@ -509,7 +509,7 @@ for thisTrial in trials:
         if dirL == 0 and dirR == 180:
             colorL = colorEither[thisTrial['colDirR']]
             colorR = colorEither[thisTrial['colDirL']]
-    print 'colorL = ' + str(colorL) + '; colorR = ' + str(colorR)
+    #print 'colorL = ' + str(colorL) + '; colorR = ' + str(colorR)
 
     trialT = thisTrial['trialT'] # -win.monitorFramePeriod*0.75
     nFrames = 60 # number of frames per sequence
@@ -559,6 +559,7 @@ for thisTrial in trials:
     frameN = -1
     tMaskMove = 0
     qnResp = 0
+    ringDrawn = False
     key_pressed = False
     key_pause = False
     if not stabQn and trialT > 1: # for longer trials with continous monitoring, no need to ask the qn:
@@ -768,10 +769,13 @@ for thisTrial in trials:
                 elif ' ' in theseKeys:
                     ringL.setAutoDraw(False)
                     ringR.setAutoDraw(False)
-                    key_qn = True
+                    ringSz = ringL.size[0]
+                    print 'ringSz = ' + str(ringSz)
+                    ringDrawn = True
 
         # pause text and data exporting
-        if key_qn and ~key_pause and t > trialT:
+        if (centTask and ringDrawn and key_qn and ~key_pause and t>trialT) or \
+                (~centTask and key_qn and ~key_pause and t>trialT):
             if not behRespRecorded: # a flag for data recording
                 # Make sure to record the release of a key at trial end
                 if someKeyPressed and not centTask and trialT>1:
@@ -828,7 +832,7 @@ for thisTrial in trials:
                                    'pd090': [nf090 / (trialT * nFrames)],
                                    'pd180': [nf180 / (trialT * nFrames)],
                                    'pd270': [nf270 / (trialT * nFrames)],
-                                   'qnResp': qnResp, 'ringSz': ringL.size[0]})
+                                   'qnResp': qnResp, 'ringSz': ringSz})
                 # to preserve the column order:
                 dataCols = ['expName', 'time', 'participant', 'session', 'trialN',
                             'dirL', 'dirR', 'vL', 'vR', 'szL', 'szR', 'sfL', 'sfR',
@@ -922,3 +926,5 @@ print "finished the experiment"
 
 win.close()
 core.quit()
+
+
