@@ -25,8 +25,8 @@ _thisDir = os.path.dirname(os.path.abspath(__file__))
 
 # ====================================================================================
 ## Initial variables.
-et = 0
-expName = 'mcvct_bv_test' # v=velocity, bsf = SF bandwidth, fp = foveal/peripheral, ct = central task # fg = foveal/gap
+et = 1
+expName = 'mcvct_bv' # v=velocity, bsf = SF bandwidth, fp = foveal/peripheral, ct = central task # fg = foveal/gap
 # Window circles (specified in degrees of visual angles [dva]):
 #winSz = 7.2 # 5.03; calculated as 5/x=sqrt(2)/2 => x=10/sqrt(2)
 winOffX = 4.25 # 6 # 5.62

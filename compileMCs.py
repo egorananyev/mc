@@ -32,7 +32,7 @@ if not os.path.exists(precompiledDir):
     os.makedirs(precompiledDir)
 
 # Input directory:
-conditionsFilePath = 'cond-files' + os.sep + 'cond-mcvct_bv.csv'
+conditionsFilePath = 'cond-files' + os.sep + 'cond-mcvct_cw.csv'
 print conditionsFilePath
 
 # Setting up the conditions:
@@ -43,7 +43,10 @@ for thisCondition in condList:
     grtSz = thisCondition['szL']
     thisSf = thisCondition['sfL']
     thisBsf = thisCondition['BsfL']
-    thisV = thisCondition['vL']
+    if thisCondition['dirL'] < 0: # this means clockwise or CCW motion
+        thisV = 0
+    else: # translational motion
+        thisV = thisCondition['vL']
     thisBv = thisCondition['BvL']
     grtName = precompiledDir + os.sep + 'mc_' + str(thisV) + '_sf' + str(thisSf) + \
         '_bsf' + str(thisBsf) + '_bv' + str(thisBv) + '_sz' + str(grtSz)
