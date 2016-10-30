@@ -25,8 +25,8 @@ _thisDir = os.path.dirname(os.path.abspath(__file__))
 
 # ====================================================================================
 ## Initial variables.
-et = 1
-expName = 'mcvct_bv' # v=velocity, bsf = SF bandwidth, fp = foveal/peripheral, ct = central task # fg = foveal/gap
+et = 0
+expName = 'mcv_annu' # v=velocity, bsf = SF bandwidth, fp = foveal/peripheral, ct = central task # fg = foveal/gap
 # Window circles (specified in degrees of visual angles [dva]):
 #winSz = 7.2 # 5.03; calculated as 5/x=sqrt(2)/2 => x=10/sqrt(2)
 winOffX = 4.25 # 6 # 5.62
@@ -376,10 +376,23 @@ y = np.arange(-grtSize/2,grtSize/2)
 x, y = np.meshgrid(x, y)
 R = np.sqrt((x+.5)**2 + (y+.5)**2) # adding .5 ensures symmetry
 
-def combinedMask(fovGap, fovFade, periGap, periFade, R=R):
-    fovMask = sigmoid(R * (10./fovFade) - (fovGap * (10./fovFade)) - 5)*2 - 1
-    periMask = sigmoid(R * (-10./(periFade)) + 5 + periGap*(10./periFade))*2 - 1
-    return fovMask * periMask
+def combinedMask(fovGap, fovFade, periGap, periFade, annuR, annuWidth, R=R):
+    if fovFade > 0:
+        fovMask = sigmoid(R * (10./fovFade) - (fovGap * (10./fovFade)) - 5)*2 - 1
+    if periFade > 0:
+        periMask = sigmoid(R * (-10./(periFade)) + 5 + periGap*(10./periFade))*2 - 1
+    if annuR > 0:
+        annuFadeOut = sigmoid(R * (-10./(annuWidth)) + 5 + annuR*(10./annuWidth))*2 - 1
+        annuFadeIn = sigmoid(R * (10./annuWidth) - (annuR * (10./annuWidth)) - 5)*2 - 1
+        annuMask = (annuFadeOut * annuFadeIn)*(-2)-1
+    if fovFade == 0 and periFade >0 and annuR == 0:
+        return periMask
+    if fovFade > 0 and periFade > 0 and annuR == 0:
+        return fovMask * periMask
+    if fovFade == 0 and periFade > 0 and annuR > 0:
+        return periMask * annuMask
+    if fovFade > 0 and periFade > 0 and annuR > 0:
+        return fovMask * periMask * annuMask
 
 # ====================================================================================
 
@@ -485,13 +498,16 @@ for thisTrial in trials:
     #print 'BsfL=' + str(BsfL) + '; BsfR=' + str(BsfR)
     centTask = thisTrial['centTask']
     #print 'centTask=' + str(centTask)
+    fixCross = thisTrial['fixCross']
     fovGap = thisTrial['fovGap']
     fovFade = thisTrial['fovFade']
     #print 'fovGap=' + str(fovGap) + '; fovFade=' + str(fovFade)
     periGap = thisTrial['periGap']
     periFade = thisTrial['periFade']
     #print 'periGap=' + str(periGap) + '; periFade=' + str(periFade)
-    fixCross = thisTrial['fixCross']
+    annuR = thisTrial['annuR']
+    annuWidth = thisTrial['annuWidth']
+    print 'annuR=' + str(annuR) + '; annuWidth=' + str(annuWidth)
     stabQn = thisTrial['stabQn'] # do we need to ask the qn on rivalry stability?
     colorEither = [[150,1,1],[330,sat,1]] # green and magenta
     if thisTrial['colDirL'] == 'rand': # picking one at random
@@ -542,7 +558,7 @@ for thisTrial in trials:
                V_X=vR, B_theta=np.inf))) - 1
 
     # Creating a mask, which is fixed for a given trial:
-    curMask = combinedMask(fovGap, fovFade, periGap, periFade)
+    curMask = combinedMask(fovGap, fovFade, periGap, periFade, annuR, annuWidth)
 
     # Using the mask to assign both the greyscale values and the mask for our color masks:
     if not colorL == colorR: # same colors mean no color mask
