@@ -26,7 +26,7 @@ _thisDir = os.path.dirname(os.path.abspath(__file__))
 # ====================================================================================
 ## Initial variables.
 et = 0
-expName = 'mcv_annu' # v=velocity, bsf = SF bandwidth, fp = foveal/peripheral, ct = central task # fg = foveal/gap
+expName = 'mcvct_bv_test' # v=velocity, bsf = SF bandwidth, fp = foveal/peripheral, ct = central task # fg = foveal/gap
 # Window circles (specified in degrees of visual angles [dva]):
 #winSz = 7.2 # 5.03; calculated as 5/x=sqrt(2)/2 => x=10/sqrt(2)
 winOffX = 4.25 # 6 # 5.62
@@ -813,7 +813,7 @@ for thisTrial in trials:
                 pauseTextL.setAutoDraw(True)
                 pauseTextR.setAutoDraw(True)
                 # Computing and recording predominance:
-                if not centTask:
+                if trialT > 1:
                     nNa = np.count_nonzero(np.isnan(behRespTrial))
                     nf000 = np.count_nonzero(behRespTrial==0)
                     nf090 = np.count_nonzero(behRespTrial==90)
