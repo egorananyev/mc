@@ -25,8 +25,8 @@ _thisDir = os.path.dirname(os.path.abspath(__file__))
 
 # ====================================================================================
 ## Initial variables.
-et = 0
-expName = 'mcvct_bv_test' # v=velocity, bsf = SF bandwidth, fp = foveal/peripheral, ct = central task # fg = foveal/gap
+et = 1
+expName = 'mc_ecc_ct_bv' # v=velocity, bsf = SF bandwidth, fp = foveal/peripheral, ct = central task # fg = foveal/gap
 # Window circles (specified in degrees of visual angles [dva]):
 #winSz = 7.2 # 5.03; calculated as 5/x=sqrt(2)/2 => x=10/sqrt(2)
 winOffX = 4.25 # 6 # 5.62
@@ -50,7 +50,7 @@ dr = (1680,1050) # display resolution in px
 #dd = (47.5,29.6) # display dimensions in cm
 dd = (29.5,16.6)
 ds = 49.5 # distance to screen in cm
-trialNfb = True # do we give the trial number feedback?
+trialNfb = False # do we give the trial number feedback?
 
 # ====================================================================================
 # Converter functions:
@@ -156,7 +156,7 @@ if et:
 
 # ====================================================================================
 # Store info about the experiment session
-expInfo = {u'session': u'', u'participant': u'', u'sat': 0.5}
+expInfo = {u'session': u'', u'participant': u'', u'sat': 0}
 dlg = gui.DlgFromDict(dictionary=expInfo, title=expName) # dialogue box
 if dlg.OK == False: core.quit()  # user pressed cancel
 timeNow = datetime.now()
@@ -578,6 +578,7 @@ for thisTrial in trials:
     ringDrawn = False
     key_pressed = False
     key_pause = False
+    respGiven = False # will be True once all questions are answered
     if not stabQn and trialT > 1: # for longer trials with continous monitoring, no need to ask the qn:
         key_qn = True
     else: # for shorter trials, or trials that have stabQn explicitely enforced, ask:
@@ -600,6 +601,7 @@ for thisTrial in trials:
         ringR.setSize([ringSzDef,ringSzDef])
         trialComponents.append(ringL)
         trialComponents.append(ringR)
+        ringSzOut = ringSzDef
     trialComponents.append(key_arrow)
     trialComponents.append(pauseTextL)
     trialComponents.append(pauseTextR)
@@ -731,6 +733,8 @@ for thisTrial in trials:
                 dirFdbkR.setAutoDraw(True)
                 someKeyPressed = True
                 key_qn = True
+                if ringDrawn:
+                    respGiven = True
                 if 'left' in theseKeys:
                     print '"left" key is pressed'
                     behRespTrial = 180
@@ -771,8 +775,8 @@ for thisTrial in trials:
                 key_qn = True
 
         # after-trial question about the extent of the central motion pattern:
-        if ~key_qn and t > trialT and centTask:
-            theseKeys = event.getKeys(keyList=['z','x',' '])
+        if ~ringDrawn and t > trialT and centTask:
+            theseKeys = event.getKeys(keyList=['z','x','c'])
             if len(theseKeys)>0:
                 ringL.setAutoDraw(True)
                 ringR.setAutoDraw(True)
@@ -782,16 +786,17 @@ for thisTrial in trials:
                 elif 'x' in theseKeys:
                     ringL = ringSz(ringL, -1) # decrease the ring size
                     ringR = ringSz(ringR, -1)
-                elif ' ' in theseKeys:
+                elif 'c' in theseKeys:
                     ringL.setAutoDraw(False)
                     ringR.setAutoDraw(False)
-                    ringSz = ringL.size[0]
-                    print 'ringSz = ' + str(ringSz)
+                    ringSzOut = ringL.size[0]
+                    print 'ringSzOut = ' + str(ringSzOut)
                     ringDrawn = True
+                    if key_qn: # if the arrows are already drawn
+                        respGiven = True
 
         # pause text and data exporting
-        if (centTask and ringDrawn and key_qn and ~key_pause and t>trialT) or \
-                (~centTask and key_qn and ~key_pause and t>trialT):
+        if respGiven and ~key_pause and t>trialT:
             if not behRespRecorded: # a flag for data recording
                 # Make sure to record the release of a key at trial end
                 if someKeyPressed and not centTask and trialT>1:
@@ -848,7 +853,7 @@ for thisTrial in trials:
                                    'pd090': [nf090 / (trialT * nFrames)],
                                    'pd180': [nf180 / (trialT * nFrames)],
                                    'pd270': [nf270 / (trialT * nFrames)],
-                                   'qnResp': qnResp, 'ringSz': ringSz})
+                                   'qnResp': qnResp, 'ringSz': ringSzOut})
                 # to preserve the column order:
                 dataCols = ['expName', 'time', 'participant', 'session', 'trialN',
                             'dirL', 'dirR', 'vL', 'vR', 'szL', 'szR', 'sfL', 'sfR',
@@ -936,11 +941,10 @@ if et:
     #Close the file and transfer it to Display PC
     el.closeDataFile()
     el.receiveDataFile(edfFileName, edfFileName)
+    os.rename(edfFileName, filePath + os.sep + edfFileName)
     el.close()
 
 print "finished the experiment"
 
 win.close()
 core.quit()
-
-
