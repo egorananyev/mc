@@ -26,7 +26,7 @@ _thisDir = os.path.dirname(os.path.abspath(__file__))
 # ====================================================================================
 ## Initial variables.
 et = 1
-expName = 'mc_ecc_ct_bv' # v=velocity, bsf = SF bandwidth, fp = foveal/peripheral, ct = central task # fg = foveal/gap
+expName = 'mcEcc_ct-sfXv' # v=velocity, bsf = SF bandwidth, fp = foveal/peripheral, ct = central task # fg = foveal/gap
 # Window circles (specified in degrees of visual angles [dva]):
 #winSz = 7.2 # 5.03; calculated as 5/x=sqrt(2)/2 => x=10/sqrt(2)
 winOffX = 4.25 # 6 # 5.62
@@ -487,7 +487,7 @@ for thisTrial in trials:
     #print 'szL=' + str(szL) + '; szR=' + str(szR)
     sfL = thisTrial['sfL']
     sfR = thisTrial['sfR']
-    #print 'sfL=' + str(sfL) + '; sfR=' + str(sfR)
+    print 'sfL=' + str(sfL) + '; sfR=' + str(sfR)
     BvL = thisTrial['BvL']
     BvR = thisTrial['BvR']
     if BvL == 'NA': BvL = .5 # default value
@@ -507,7 +507,7 @@ for thisTrial in trials:
     #print 'periGap=' + str(periGap) + '; periFade=' + str(periFade)
     annuR = thisTrial['annuR']
     annuWidth = thisTrial['annuWidth']
-    print 'annuR=' + str(annuR) + '; annuWidth=' + str(annuWidth)
+    #print 'annuR=' + str(annuR) + '; annuWidth=' + str(annuWidth)
     stabQn = thisTrial['stabQn'] # do we need to ask the qn on rivalry stability?
     colorEither = [[150,1,1],[330,sat,1]] # green and magenta
     if thisTrial['colDirL'] == 'rand': # picking one at random

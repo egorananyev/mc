@@ -32,7 +32,7 @@ if not os.path.exists(precompiledDir):
     os.makedirs(precompiledDir)
 
 # Input directory:
-conditionsFilePath = 'cond-files' + os.sep + 'cond-mc_ecc_ct_bv.csv'
+conditionsFilePath = 'cond-files' + os.sep + 'cond-mcEcc_ct-sfXv.csv'
 print conditionsFilePath
 
 # Setting up the conditions:
