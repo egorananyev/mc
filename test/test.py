@@ -1,7 +1,7 @@
-import psychopy
+#import psychopy
 import numpy as np
-import vispy
-from vispy import scene
+#import vispy
+#from vispy import scene
 import MotionClouds as mc
 print(dir(mc))
 #from vispy.visuals.transforms import STTransform,MatrixTransform
