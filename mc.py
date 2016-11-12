@@ -42,7 +42,7 @@ precompileMode = 1 # get the precompiled MCs
 grtSize = 256 # size of 256 is 71mm, or 7.2dova
 defAlpha = .2
 # Ring steps (for ct):
-ringSteps = 7
+ringSteps = 8
 # Dimensions:
 ###### 7.2dova = 71mm = 256px; 475x296mm, 563mm viewing dist ######
 dr = (1680,1050) # display resolution in px
@@ -286,11 +286,10 @@ qntxtR = visual.TextStim(win=win,
                          pos=posCentR, height=dg2px(.55), wrapWidth=dg2px(4.5),
                          color='white')
 # feedback ring (for ct):
-ringSzDef = winSz/10
-ringL = visual.Polygon(win, edges=36, size=[ringSzDef, ringSzDef], ori=0, 
+ringL = visual.Polygon(win, edges=36, size=[winSz, winSz], ori=0, 
                        pos=posCentL, lineWidth=winThickness, lineColor='red',
                        opacity=.1, interpolate=True)
-ringR = visual.Polygon(win, edges=36, size=[ringSzDef, ringSzDef], ori=0, 
+ringR = visual.Polygon(win, edges=36, size=[winSz, winSz], ori=0, 
                        pos=posCentR, lineWidth=winThickness, lineColor='red',
                        opacity=.1, interpolate=True)
 # pause text:
@@ -355,7 +354,7 @@ def ringSz(ring, ringSzMulti):
     if sz > winSz:
         sz = winSz
     elif sz < winSz/ringSteps:
-        sz = ringSzDef
+        sz = winSz/ringSteps
     ring.setSize([sz,sz])
     return ring
 
@@ -597,11 +596,11 @@ for thisTrial in trials:
     trialComponents.append(qntxtL)
     trialComponents.append(qntxtR)
     if centTask:
-        ringL.setSize([ringSzDef,ringSzDef])
-        ringR.setSize([ringSzDef,ringSzDef])
+        ringL.setSize([winSz,winSz])
+        ringR.setSize([winSz,winSz])
         trialComponents.append(ringL)
         trialComponents.append(ringR)
-        ringSzOut = ringSzDef
+        ringSzOut = winSz
     trialComponents.append(key_arrow)
     trialComponents.append(pauseTextL)
     trialComponents.append(pauseTextR)
