@@ -26,14 +26,14 @@ _thisDir = os.path.dirname(os.path.abspath(__file__))
 # ====================================================================================
 ## Initial variables.
 et = 1
-expName = 'mcEcc_ct-sfXv' # v=velocity, bsf = SF bandwidth, fp = foveal/peripheral, ct = central task # fg = foveal/gap
+expName = 'mcEcc_ct-sfXv'
 # Window circles (specified in degrees of visual angles [dva]):
 #winSz = 7.2 # 5.03; calculated as 5/x=sqrt(2)/2 => x=10/sqrt(2)
 winOffX = 4.25 # 6 # 5.62
 winOffY = 3.5 # 5.5 (3.5cm ~= 124px)
 winThickness = 2 # in pixels
-fdbkLen = .5 # the length of the feedback line, in degrees
-fdbkThick = 5 # the tickness of the feedback line, in pixels
+fdbkLen = .25 # the length of the feedback line, in degrees
+fdbkThick = 4 # the tickness of the feedback line, in pixels
 # Timing variables:
 ISIduration = 1
 fixSz = .15
@@ -574,6 +574,7 @@ for thisTrial in trials:
     frameN = -1
     tMaskMove = 0
     qnResp = 0
+    elStopped = False
     ringDrawn = False
     key_pressed = False
     key_pause = False
@@ -774,7 +775,7 @@ for thisTrial in trials:
                 key_qn = True
 
         # after-trial question about the extent of the central motion pattern:
-        if ~ringDrawn and t > trialT and centTask:
+        if t > trialT and centTask:
             theseKeys = event.getKeys(keyList=['z','x','c'])
             if len(theseKeys)>0:
                 ringL.setAutoDraw(True)
@@ -793,6 +794,12 @@ for thisTrial in trials:
                     ringDrawn = True
                     if key_qn: # if the arrows are already drawn
                         respGiven = True
+
+        if t > trialT and not elStopped:
+            # stopping eye-tracking recording:
+            if et:
+                elEndRec(el)
+                elStopped = True
 
         # pause text and data exporting
         if respGiven and ~key_pause and t>trialT:
@@ -813,9 +820,10 @@ for thisTrial in trials:
                         str(np.around(((trialT*nFrames)-keyPressFN)/60,2)) + 's'
                     print 'recorded post-trial response'
                 # Recording the responses:
-                behRespRecorded = True
                 pauseTextL.setAutoDraw(True)
                 pauseTextR.setAutoDraw(True)
+            if 'space' in event.getKeys(keyList=['space']):
+                behRespRecorded = True
                 # Computing and recording predominance:
                 if trialT > 1:
                     nNa = np.count_nonzero(np.isnan(behRespTrial))
@@ -835,24 +843,24 @@ for thisTrial in trials:
                     if behRespTrial==180: nf180 = 1
                     if behRespTrial==270: nf270 = 1
                 dT = pd.DataFrame({'expName': expName,
-                                   'time': expInfo['time'],
-                                   'participant': expInfo['participant'],
-                                   'session': expInfo['session'],
-                                   'trialN': nDone,
-                                   'dirL': dirL, 'dirR': dirR,
-                                   'vL': vL, 'vR': vR, 'szL': szL, 'szR': szR,
-                                   'sfL': sfL, 'sfR': sfR, 'BvL': BvL, 'BvR': BvR,
-                                   'BsfL': BsfL, 'BsfR': BsfR,
-                                   'colorL': str(colorL), 'colorR': str(colorR), 'sat': sat,
-                                   'fovGap': fovGap, 'fovFade': fovFade,
-                                   'periGap': periGap, 'periFade': periFade,
-                                   'trialT': trialT, 'nFrames': nFrames, 'nNa': nNa,
-                                   'nf000': nf000, 'nf090': nf090, 'nf180': nf180, 'nf270': nf270,
-                                   'pd000': [nf000 / (trialT * nFrames)],
-                                   'pd090': [nf090 / (trialT * nFrames)],
-                                   'pd180': [nf180 / (trialT * nFrames)],
-                                   'pd270': [nf270 / (trialT * nFrames)],
-                                   'qnResp': qnResp, 'ringSz': ringSzOut})
+                                'time': expInfo['time'],
+                                'participant': expInfo['participant'],
+                                'session': expInfo['session'],
+                                'trialN': nDone,
+                                'dirL': dirL, 'dirR': dirR,
+                                'vL': vL, 'vR': vR, 'szL': szL, 'szR': szR,
+                                'sfL': sfL, 'sfR': sfR, 'BvL': BvL, 'BvR': BvR,
+                                'BsfL': BsfL, 'BsfR': BsfR,
+                                'colorL': str(colorL), 'colorR': str(colorR), 'sat': sat,
+                                'fovGap': fovGap, 'fovFade': fovFade,
+                                'periGap': periGap, 'periFade': periFade,
+                                'trialT': trialT, 'nFrames': nFrames, 'nNa': nNa,
+                                'nf000': nf000, 'nf090': nf090, 'nf180': nf180, 'nf270': nf270,
+                                'pd000': [nf000 / (trialT * nFrames)],
+                                'pd090': [nf090 / (trialT * nFrames)],
+                                'pd180': [nf180 / (trialT * nFrames)],
+                                'pd270': [nf270 / (trialT * nFrames)],
+                                'qnResp': qnResp, 'ringSz': ringSzOut})
                 # to preserve the column order:
                 dataCols = ['expName', 'time', 'participant', 'session', 'trialN',
                             'dirL', 'dirR', 'vL', 'vR', 'szL', 'szR', 'sfL', 'sfR',
@@ -867,7 +875,6 @@ for thisTrial in trials:
                 # Recording the data to a csv file:
                 df.to_csv(dataFileName, index=False, columns=dataCols)
                 print 'wrote the data set to ' + dataFileName
-            if 'space' in event.getKeys(keyList=['space']):
                 print 'spacebar pressed - continuing to the next trial'
                 pauseTextL.setAutoDraw(False)
                 pauseTextR.setAutoDraw(False)
@@ -886,9 +893,6 @@ for thisTrial in trials:
             fixL.setAutoDraw(False)
             fixR.setAutoDraw(False)
             ISI.complete() #finish the static period
-            # stopping eye-tracking recording:
-            if et:
-                elEndRec(el)
             continueRoutine = False
         
         # check if all components have finished
