@@ -474,40 +474,50 @@ for thisTrial in trials:
     nDone += 1
     if trialNfb:
         trialNfbText.text = str(nDone) + '/' + str(trials.nTotal)
-    print 'trial#' + str(nDone)
+    print 'trial#' + str(nDone) + '/' + str(trials.nTotal)
+
+    ## Setting up trial variables
+
+    # Motion setup: Direction, velocity, size, & sf:
     dirL = thisTrial['dirL']
     dirR = thisTrial['dirR']
     print 'dirL=' + str(dirL) + '; dirR=' + str(dirR)
     vL = thisTrial['vL']
     vR = thisTrial['vR']
-    print 'vL=' + str(vL) + '; vR=' + str(vR)
     szL = thisTrial['szL']
     szR = thisTrial['szR']
-    #print 'szL=' + str(szL) + '; szR=' + str(szR)
     sfL = thisTrial['sfL']
     sfR = thisTrial['sfR']
-    print 'sfL=' + str(sfL) + '; sfR=' + str(sfR)
     BvL = thisTrial['BvL']
     BvR = thisTrial['BvR']
     if BvL == 'NA': BvL = .5 # default value
     if BvR == 'NA': BvR = .5
-    #print 'BvL=' + str(BvL) + '; BvR=' + str(BvR)
     BsfL = thisTrial['BsfL']
     BsfR = thisTrial['BsfR']
+    if expName == 'mcEcc_ct-sfXv' or expName == 'mcvct':
+        print 'vL=' + str(vL) + '; vR=' + str(vR)
+    if expName == 'mcEcc_ct-sfXv':
+        print 'sfL=' + str(sfL) + '; sfR=' + str(sfR)
+    if expName == 'mcEcc_ct-sfXbv' or expName == 'mcEcc_ct-bv':
+        print 'BvL=' + str(BvL) + '; BvR=' + str(BvR)
+    #print 'szL=' + str(szL) + '; szR=' + str(szR)
     #print 'BsfL=' + str(BsfL) + '; BsfR=' + str(BsfR)
+
+    # View setup: Fade, gap, and fixation cross
     centTask = thisTrial['centTask']
-    #print 'centTask=' + str(centTask)
     fixCross = thisTrial['fixCross']
     fovGap = thisTrial['fovGap']
     fovFade = thisTrial['fovFade']
-    #print 'fovGap=' + str(fovGap) + '; fovFade=' + str(fovFade)
     periGap = thisTrial['periGap']
     periFade = thisTrial['periFade']
+    #print 'fovGap=' + str(fovGap) + '; fovFade=' + str(fovFade)
     #print 'periGap=' + str(periGap) + '; periFade=' + str(periFade)
+    #print 'annuR=' + str(annuR) + '; annuWidth=' + str(annuWidth)
     annuR = thisTrial['annuR']
     annuWidth = thisTrial['annuWidth']
-    #print 'annuR=' + str(annuR) + '; annuWidth=' + str(annuWidth)
     stabQn = thisTrial['stabQn'] # do we need to ask the qn on rivalry stability?
+
+    # Color, if any:
     colorEither = [[150,1,1],[330,sat,1]] # green and magenta
     if thisTrial['colDirL'] == 'rand': # picking one at random
         colorPick = np.random.permutation(colorEither)
