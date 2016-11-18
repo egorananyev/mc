@@ -1,5 +1,4 @@
-####!/usr/bin/arch -i386 /usr/bin/python
-# -*- coding: utf-8 -*-
+####!/usr/bin/arch -i386 /usr/bin/python # -*- coding: utf-8 -*-
 """
 Motion Clouds: SF Bandwidth (B_sf)
 2016-07-29
@@ -26,7 +25,7 @@ _thisDir = os.path.dirname(os.path.abspath(__file__))
 # ====================================================================================
 ## Initial variables.
 et = 1
-expName = 'mcEcc_ct-sfXv'
+expName = 'mcEcc_ct-bv'
 # Window circles (specified in degrees of visual angles [dva]):
 #winSz = 7.2 # 5.03; calculated as 5/x=sqrt(2)/2 => x=10/sqrt(2)
 winOffX = 4.25 # 6 # 5.62
@@ -49,7 +48,7 @@ dr = (1680,1050) # display resolution in px
 #dr = (1366,768)
 #dd = (47.5,29.6) # display dimensions in cm
 dd = (29.5,16.6)
-ds = 49.5 # distance to screen in cm
+ds = 50+2.5+3.5 #49.5 # distance to screen in cm
 trialNfb = False # do we give the trial number feedback?
 
 # ====================================================================================

@@ -1,0 +1,3 @@
+import mc
+
+print dr
