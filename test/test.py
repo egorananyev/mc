@@ -10,12 +10,12 @@ import MotionClouds as mc
 
 # params:
 sf0 = 0.1
-bsf = .16
+bsf = .05
 vX = 1.2
 vY = 0
 bV = .5
-theta = 0
-bTheta = 3.14
+theta = 60
+bTheta = 4/3.14
 
 # define Fourier domain
 fx, fy, ft = mc.get_grids(mc.N_X, mc.N_Y, mc.N_frame)

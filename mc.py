@@ -25,7 +25,7 @@ _thisDir = os.path.dirname(os.path.abspath(__file__))
 # ====================================================================================
 ## Initial variables.
 et = 1
-expName = 'mcEcc_ct-bv'
+expName = 'mcEcc_ct-bsfXv'
 # Window circles (specified in degrees of visual angles [dva]):
 #winSz = 7.2 # 5.03; calculated as 5/x=sqrt(2)/2 => x=10/sqrt(2)
 winOffX = 4.25 # 6 # 5.62
@@ -477,10 +477,9 @@ for thisTrial in trials:
 
     ## Setting up trial variables
 
-    # Motion setup: Direction, velocity, size, & sf:
+    # Motion setup for the trial:
     dirL = thisTrial['dirL']
     dirR = thisTrial['dirR']
-    print 'dirL=' + str(dirL) + '; dirR=' + str(dirR)
     vL = thisTrial['vL']
     vR = thisTrial['vR']
     szL = thisTrial['szL']
@@ -493,14 +492,27 @@ for thisTrial in trials:
     if BvR == 'NA': BvR = .5
     BsfL = thisTrial['BsfL']
     BsfR = thisTrial['BsfR']
+    thL = thisTrial['thL']
+    thR = thisTrial['thR']
+    trialT = thisTrial['trialT'] # -win.monitorFramePeriod*0.75
+
+    # Print out trial info based on the nature of the experiment:
+    if not expName == 'mcEcc_ct-tXv':
+        print 'dirL=' + str(dirL) + '; dirR=' + str(dirR)
     if expName == 'mcEcc_ct-sfXv' or expName == 'mcvct':
         print 'vL=' + str(vL) + '; vR=' + str(vR)
     if expName == 'mcEcc_ct-sfXv':
         print 'sfL=' + str(sfL) + '; sfR=' + str(sfR)
     if expName == 'mcEcc_ct-sfXbv' or expName == 'mcEcc_ct-bv':
         print 'BvL=' + str(BvL) + '; BvR=' + str(BvR)
-    #print 'szL=' + str(szL) + '; szR=' + str(szR)
-    #print 'BsfL=' + str(BsfL) + '; BsfR=' + str(BsfR)
+    if expName == 'mcEcc_ct-bsfXv':
+        print 'BsfL=' + str(BsfL) + '; BsfR=' + str(BsfR)
+    if expName == 'mcEcc_ct-t':
+        print 'trialT=' + str(trialT)
+    if expName == 'mcEcc_ct-szXv':
+        print 'szL=' + str(szL) + '; szR=' + str(szR)
+    if expName == 'mcEcc_ct-th':
+        print 'thL=' + str(thL) + '; thR=' + str(thR)
 
     # View setup: Fade, gap, and fixation cross
     centTask = thisTrial['centTask']
@@ -535,7 +547,6 @@ for thisTrial in trials:
             colorR = colorEither[thisTrial['colDirL']]
     #print 'colorL = ' + str(colorL) + '; colorR = ' + str(colorR)
 
-    trialT = thisTrial['trialT'] # -win.monitorFramePeriod*0.75
     nFrames = 60 # number of frames per sequence
     
     # Creating an empty matrix for keeping the behavioural responses:
