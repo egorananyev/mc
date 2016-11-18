@@ -1,3 +1,0 @@
-import mc
-
-print dr

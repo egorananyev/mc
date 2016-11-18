@@ -9,13 +9,13 @@ import MotionClouds as mc
 #from vispy.visuals.transforms import STTransform,MatrixTransform
 
 # params:
-sf0 = 0.025
-bsf = .01
+sf0 = 0.1
+bsf = .16
+vX = 1.2
+vY = 0
+bV = .5
 theta = 0
 bTheta = 3.14
-vX = 0
-vY = 0
-bV = .001
 
 # define Fourier domain
 fx, fy, ft = mc.get_grids(mc.N_X, mc.N_Y, mc.N_frame)
@@ -30,4 +30,4 @@ movie=mc.rectif(movie)
 name = 'sf' + str(sf0) + '_bsf' + str(bsf) + '_vX' + str(vX) + '_vY' + str(vY) + '_bV' + str(bV) + '_th' + str(theta) + '_bTh' + str(bTheta)
 print name
 mc.cube(movie, name=name+'_cube')
-mc.anim_save(movie, name, display=True, vext='.mp4')
+#mc.anim_save(movie, name, display=True, vext='.mp4')
