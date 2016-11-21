@@ -348,12 +348,12 @@ dataFileName = filePath + os.sep + fileName + '.csv'
 # Various functions for use in trials:
 
 # Increase/decrease of the after-trial central motion task:
-def ringSz(ring, ringSzMulti):
-    sz = ring.size[1] + ringSzMulti * winSz / ringSteps
-    if sz > winSz:
-        sz = winSz
-    elif sz < winSz/ringSteps:
-        sz = winSz/ringSteps
+def ringSz(ring, periGap, ringSzMulti):
+    sz = ring.size[1] + ringSzMulti * (periGap*2) / ringSteps
+    if sz > (periGap*2):
+        sz = (periGap*2)
+    elif sz < (periGap*2)/ringSteps:
+        sz = (periGap*2)/ringSteps
     ring.setSize([sz,sz])
     return ring
 
@@ -527,6 +527,11 @@ for thisTrial in trials:
     annuR = thisTrial['annuR']
     annuWidth = thisTrial['annuWidth']
     stabQn = thisTrial['stabQn'] # do we need to ask the qn on rivalry stability?
+    # If central task, the ring size is set to twice the periGap (the actual stim size):
+    if centTask
+        ringL.setSize([periGap*2,periGap*2])
+        ringR.setSize([periGap*2,periGap*2])
+        ringSzOut = periGap*2
 
     # Color, if any:
     colorEither = [[150,1,1],[330,sat,1]] # green and magenta
@@ -617,11 +622,8 @@ for thisTrial in trials:
     trialComponents.append(qntxtL)
     trialComponents.append(qntxtR)
     if centTask:
-        ringL.setSize([winSz,winSz])
-        ringR.setSize([winSz,winSz])
         trialComponents.append(ringL)
         trialComponents.append(ringR)
-        ringSzOut = winSz
     trialComponents.append(key_arrow)
     trialComponents.append(pauseTextL)
     trialComponents.append(pauseTextR)
@@ -801,11 +803,11 @@ for thisTrial in trials:
                 ringL.setAutoDraw(True)
                 ringR.setAutoDraw(True)
                 if 'z' in theseKeys:
-                    ringL = ringSz(ringL, 1) # increase the ring size
-                    ringR = ringSz(ringR, 1)
+                    ringL = ringSz(ringL, periGap, 1) # increase the ring size
+                    ringR = ringSz(ringR, periGap, 1)
                 elif 'x' in theseKeys:
-                    ringL = ringSz(ringL, -1) # decrease the ring size
-                    ringR = ringSz(ringR, -1)
+                    ringL = ringSz(ringL, periGap, -1) # decrease the ring size
+                    ringR = ringSz(ringR, periGap, -1)
                 elif 'c' in theseKeys:
                     ringL.setAutoDraw(False)
                     ringR.setAutoDraw(False)
