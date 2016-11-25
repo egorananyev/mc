@@ -24,8 +24,8 @@ _thisDir = os.path.dirname(os.path.abspath(__file__))
 
 # ====================================================================================
 ## Initial variables.
-et = 1
-expName = 'mcEcc_ct-bsfXv'
+et = 0
+expName = 'mcEcc_ct-offXbv'
 # Window circles (specified in degrees of visual angles [dva]):
 #winSz = 7.2 # 5.03; calculated as 5/x=sqrt(2)/2 => x=10/sqrt(2)
 winOffX = 4.25 # 6 # 5.62
@@ -348,7 +348,7 @@ dataFileName = filePath + os.sep + fileName + '.csv'
 # Various functions for use in trials:
 
 # Increase/decrease of the after-trial central motion task:
-def ringSz(ring, periGap, ringSzMulti):
+def ringSzFn(ring, periGap, ringSzMulti):
     sz = ring.size[1] + ringSzMulti * (periGap*2) / ringSteps
     if sz > (periGap*2):
         sz = (periGap*2)
@@ -497,7 +497,7 @@ for thisTrial in trials:
     trialT = thisTrial['trialT'] # -win.monitorFramePeriod*0.75
 
     # Print out trial info based on the nature of the experiment:
-    if not expName == 'mcEcc_ct-tXv':
+    if not expName == 'mcEcc_ct-tXbv' and not expName == 'mcEcc_ct-szXbv':
         print 'dirL=' + str(dirL) + '; dirR=' + str(dirR)
     if expName == 'mcEcc_ct-sfXv' or expName == 'mcvct':
         print 'vL=' + str(vL) + '; vR=' + str(vR)
@@ -509,10 +509,14 @@ for thisTrial in trials:
         print 'BsfL=' + str(BsfL) + '; BsfR=' + str(BsfR)
     if expName == 'mcEcc_ct-t':
         print 'trialT=' + str(trialT)
-    if expName == 'mcEcc_ct-szXv':
-        print 'szL=' + str(szL) + '; szR=' + str(szR)
     if expName == 'mcEcc_ct-th':
         print 'thL=' + str(thL) + '; thR=' + str(thR)
+    if expName == 'mcEcc_ct-offXbv':
+        offX = thisTrial['offX']
+        offY = thisTrial['offY']
+        print 'offX=' + str(offX) + '; offY=' + str(offY)
+    else:
+        offX = 0; offY = 0
 
     # View setup: Fade, gap, and fixation cross
     centTask = thisTrial['centTask']
@@ -528,10 +532,12 @@ for thisTrial in trials:
     annuWidth = thisTrial['annuWidth']
     stabQn = thisTrial['stabQn'] # do we need to ask the qn on rivalry stability?
     # If central task, the ring size is set to twice the periGap (the actual stim size):
-    if centTask
+    if centTask:
         ringL.setSize([periGap*2,periGap*2])
         ringR.setSize([periGap*2,periGap*2])
-        ringSzOut = periGap*2
+        ringSz = int(periGap*2) # gets overwritten later if changed
+        if expName == 'mcEcc_ct-szXv' or expName == 'mcEcc_ct-szXbv':
+            print 'stimSz=' + str(ringSz)
 
     # Color, if any:
     colorEither = [[150,1,1],[330,sat,1]] # green and magenta
@@ -678,11 +684,11 @@ for thisTrial in trials:
         # stimulus presentation:
         if t < trialT:
             stimL = visual.GratingStim(win, tex=grtL[:,:,frameN%nFrames], 
-                size=(grtSize,grtSize), pos=posCentL, 
+                size=(grtSize,grtSize), pos=[-winOffX+dg2px(offX), winOffY+dg2px(offY)], 
                 interpolate=False, mask=curMask, ori=90+dirL)
             stimL.draw()
             stimR = visual.GratingStim(win, tex=grtR[:,:,frameN%nFrames], 
-                size=(grtSize,grtSize), pos=posCentR,
+                size=(grtSize,grtSize), pos=[winOffX+dg2px(offX), winOffY+dg2px(offY)], 
                 interpolate=False, mask=curMask, ori=90+dirR)
             stimR.draw()
             # Drawing the color masks:
@@ -705,7 +711,7 @@ for thisTrial in trials:
             event.clearEvents(eventType='keyboard')
             kb_device.clearEvents()
         # registering the response continuously:
-        if key_arrow.status == STARTED and trialT > 1 and t < trialT:
+        if key_arrow.status == STARTED and trialT > 5 and t < trialT:
             thesePresses = kb_device.getPresses(keys=['left','right','up','down'])
             theseReleases = kb_device.getReleases(keys=['left','right','up','down'])
             if len(thesePresses) > 0:
@@ -748,7 +754,7 @@ for thisTrial in trials:
                 elif 'down' in theseReleases:
                     behRespTrial[0,keyPressFN:frameN+1] = 270 # down
         # registering response at the end of the trial for short trials:
-        if key_arrow.status == STARTED and trialT <= 1 and t > trialT:
+        if key_arrow.status == STARTED and trialT <= 5 and t > trialT:
             theseKeys = event.getKeys(keyList=['left','right','up','down'])
             if len(theseKeys) > 0:
                 dirFdbkL.setAutoDraw(True)
@@ -779,7 +785,7 @@ for thisTrial in trials:
                     drawFdbkAngle(dirFdbkR, 1, behRespTrial)
 
         # after-trial question about the trial stability
-        if ~key_qn and t > trialT and stabQn:
+        if not key_qn and t > trialT and stabQn:
             qntxtL.setAutoDraw(True)
             qntxtR.setAutoDraw(True)
             theseKeys = event.getKeys(keyList=['1','2','3','4'])
@@ -803,16 +809,16 @@ for thisTrial in trials:
                 ringL.setAutoDraw(True)
                 ringR.setAutoDraw(True)
                 if 'z' in theseKeys:
-                    ringL = ringSz(ringL, periGap, 1) # increase the ring size
-                    ringR = ringSz(ringR, periGap, 1)
+                    ringL = ringSzFn(ringL, periGap, 1) # increase the ring size
+                    ringR = ringSzFn(ringR, periGap, 1)
                 elif 'x' in theseKeys:
-                    ringL = ringSz(ringL, periGap, -1) # decrease the ring size
-                    ringR = ringSz(ringR, periGap, -1)
+                    ringL = ringSzFn(ringL, periGap, -1) # decrease the ring size
+                    ringR = ringSzFn(ringR, periGap, -1)
                 elif 'c' in theseKeys:
                     ringL.setAutoDraw(False)
                     ringR.setAutoDraw(False)
-                    ringSzOut = ringL.size[0]
-                    print 'ringSzOut = ' + str(ringSzOut)
+                    ringSz = int(ringL.size[0])
+                    print 'ringSz = ' + str(ringSz)
                     ringDrawn = True
                     if key_qn: # if the arrows are already drawn
                         respGiven = True
@@ -824,10 +830,10 @@ for thisTrial in trials:
                 elStopped = True
 
         # pause text and data exporting
-        if respGiven and ~key_pause and t>trialT:
+        if respGiven and not key_pause and t>trialT:
             if not behRespRecorded: # a flag for data recording
                 # Make sure to record the release of a key at trial end
-                if someKeyPressed and not centTask and trialT>1:
+                if someKeyPressed and not centTask and trialT>5:
                     if whichKeyPressed == 'left':
                         behRespTrial[0,keyPressFN:(trialT*nFrames)] = 180
                     if whichKeyPressed == 'right':
@@ -847,7 +853,7 @@ for thisTrial in trials:
             if 'space' in event.getKeys(keyList=['space']):
                 behRespRecorded = True
                 # Computing and recording predominance:
-                if trialT > 1:
+                if trialT > 5:
                     nNa = np.count_nonzero(np.isnan(behRespTrial))
                     nf000 = np.count_nonzero(behRespTrial==0)
                     nf090 = np.count_nonzero(behRespTrial==90)
@@ -875,19 +881,19 @@ for thisTrial in trials:
                                 'BsfL': BsfL, 'BsfR': BsfR,
                                 'colorL': str(colorL), 'colorR': str(colorR), 'sat': sat,
                                 'fovGap': fovGap, 'fovFade': fovFade,
-                                'periGap': periGap, 'periFade': periFade,
+                                'periGap': periGap, 'periFade': periFade, 'offX': offX, 'offY': offY,
                                 'trialT': trialT, 'nFrames': nFrames, 'nNa': nNa,
                                 'nf000': nf000, 'nf090': nf090, 'nf180': nf180, 'nf270': nf270,
                                 'pd000': [nf000 / (trialT * nFrames)],
                                 'pd090': [nf090 / (trialT * nFrames)],
                                 'pd180': [nf180 / (trialT * nFrames)],
                                 'pd270': [nf270 / (trialT * nFrames)],
-                                'qnResp': qnResp, 'ringSz': ringSzOut})
+                                'qnResp': qnResp, 'ringSz': ringSz})
                 # to preserve the column order:
                 dataCols = ['expName', 'time', 'participant', 'session', 'trialN',
                             'dirL', 'dirR', 'vL', 'vR', 'szL', 'szR', 'sfL', 'sfR',
                             'tfL', 'tfR', 'BvL', 'BvR', 'BsfL', 'BsfR', 'colorL', 'colorR',
-                            'sat', 'fovGap', 'fovFade', 'periGap', 'periFade',
+                            'sat', 'fovGap', 'fovFade', 'periGap', 'periFade', 'offX', 'offY',
                             'trialT', 'nFrames', 'nNa', 'nf000', 'nf090', 'nf180', 'nf270', 
                             'pd000', 'pd090', 'pd180', 'pd270', 'qnResp', 'ringSz']
                 if nDone == 1:
