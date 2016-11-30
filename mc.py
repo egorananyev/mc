@@ -25,7 +25,7 @@ _thisDir = os.path.dirname(os.path.abspath(__file__))
 # ====================================================================================
 ## Initial variables.
 et = 0
-expName = 'mcEcc_ct-szRelXbv'
+expName = 'mcEcc_ct-tRelXbv'
 # Window circles (specified in degrees of visual angles [dva]):
 #winSz = 7.2 # 5.03; calculated as 5/x=sqrt(2)/2 => x=10/sqrt(2)
 winOffX = 4.25 # 6 # 5.62
@@ -520,8 +520,15 @@ for thisTrial in trials:
     if expName == 'mcEcc_ct-szRelXbv':
         szRelL = thisTrial['szRelL']
         szRelR = thisTrial['szRelR']
+        print 'szRelL=' + str(szRelL) + '; szRelR=' + str(szRelR)
     else:
         szRelL = 1; szRelR = 1
+    if expName == 'mcEcc_ct-tRelXbv':
+        tOffL = thisTrial['tOffL']
+        tOffR = thisTrial['tOffR']
+        print 'tOffL=' + str(tOffL) + '; tOffR=' + str(tOffR)
+    else:
+        tOffL = 0; tOffR = 0
 
     # View setup: Fade, gap, and fixation cross
     centTask = thisTrial['centTask']
@@ -538,12 +545,13 @@ for thisTrial in trials:
     stabQn = thisTrial['stabQn'] # do we need to ask the qn on rivalry stability?
     # If central task, the ring size is set to twice the periGap (the actual stim size):
     if centTask:
-        if expName == 'mcEcc_ct-szXv' or expName == 'mcEcc_ct-szXbv':
-            ringSz = int(periGap*2) # gets overwritten later if changed
-            print 'stimSz=' + str(ringSz)
         if expName == 'mcEcc_ct-szRelXbv':
             ringSz = int(np.max([periGap*szRelL*2,periGap*szRelR*2]))
             print 'szRelL=' + str(periGap*szRelL*2) + '; szRelR=' + str(periGap*szRelR*2)
+        else:
+            ringSz = int(periGap*2) # gets overwritten later if changed
+        if expName == 'mcEcc_ct-szXv' or expName == 'mcEcc_ct-szXbv':
+            print 'stimSz=' + str(ringSz)
         ringL.setSize([ringSz,ringSz])
         ringR.setSize([ringSz,ringSz])
 
@@ -569,7 +577,7 @@ for thisTrial in trials:
     nFrames = 60 # number of frames per sequence
     
     # Creating an empty matrix for keeping the behavioural responses:
-    if trialT <= 1: # if short trial, response to be given at the end
+    if trialT <= 3: # if short trial, response to be given at the end
         behRespTrial = []
     else: # for longer trials, enable continuous tracking:
         behRespTrial = np.empty([1, trialT*nFrames]) 
@@ -619,7 +627,7 @@ for thisTrial in trials:
     key_pressed = False
     key_pause = False
     respGiven = False # will be True once all questions are answered
-    if not stabQn and trialT > 1: # for longer trials with continous monitoring, no need to ask the qn:
+    if not stabQn and trialT > 5: # for longer trials with continous monitoring, no need to ask the qn:
         key_qn = True
     else: # for shorter trials, or trials that have stabQn explicitely enforced, ask:
         key_qn = False
@@ -692,14 +700,16 @@ for thisTrial in trials:
 
         # stimulus presentation:
         if t < trialT:
-            stimL = visual.GratingStim(win, tex=grtL[:,:,frameN%nFrames], 
-                size=(grtSize,grtSize), pos=[-winOffX+dg2px(offX), winOffY+dg2px(offY)], 
-                interpolate=False, mask=curMaskL, ori=90+dirL)
-            stimL.draw()
-            stimR = visual.GratingStim(win, tex=grtR[:,:,frameN%nFrames], 
-                size=(grtSize,grtSize), pos=[winOffX+dg2px(offX), winOffY+dg2px(offY)], 
-                interpolate=False, mask=curMaskR, ori=90+dirR)
-            stimR.draw()
+            if t > tOffL:
+                stimL = visual.GratingStim(win, tex=grtL[:,:,frameN%nFrames], 
+                    size=(grtSize,grtSize), pos=[-winOffX+dg2px(offX), winOffY+dg2px(offY)], 
+                    interpolate=False, mask=curMaskL, ori=90+dirL)
+                stimL.draw()
+            if t > tOffR:
+                stimR = visual.GratingStim(win, tex=grtR[:,:,frameN%nFrames], 
+                    size=(grtSize,grtSize), pos=[winOffX+dg2px(offX), winOffY+dg2px(offY)], 
+                    interpolate=False, mask=curMaskR, ori=90+dirR)
+                stimR.draw()
             # Drawing the color masks:
             if not colorL == colorR: # same colors mean no color mask
                 colMaskL.draw()
@@ -893,7 +903,7 @@ for thisTrial in trials:
                                 'fovGap': fovGap, 'fovFade': fovFade,
                                 'periGap': periGap, 'periFade': periFade,
                                 'szRelL': szRelL, 'szRelR': szRelR,
-                                'offX': offX, 'offY': offY,
+                                'offX': offX, 'offY': offY, 'tOffL': tOffL, 'tOffR': tOffR,
                                 'trialT': trialT, 'nFrames': nFrames, 'nNa': nNa,
                                 'nf000': nf000, 'nf090': nf090, 'nf180': nf180, 'nf270': nf270,
                                 'pd000': [nf000 / (trialT * nFrames)],
@@ -905,8 +915,8 @@ for thisTrial in trials:
                 dataCols = ['expName', 'time', 'participant', 'session', 'trialN', 'dirL', 'dirR',
                             'vL', 'vR', 'szL', 'szR', 'sfL', 'sfR', 'tfL', 'tfR', 'BvL', 'BvR',
                             'BsfL', 'BsfR', 'colorL', 'colorR', 'sat', 'fovGap', 'fovFade', 
-                            'periGap', 'periFade', 'szRelL', 'szRelR', 'offX', 'offY', 'trialT',
-                            'nFrames', 'nNa', 'nf000', 'nf090', 'nf180', 'nf270', 
+                            'periGap', 'periFade', 'szRelL', 'szRelR', 'offX', 'offY', 'tOffL', 'tOffR',
+                            'trialT', 'nFrames', 'nNa', 'nf000', 'nf090', 'nf180', 'nf270', 
                             'pd000', 'pd090', 'pd180', 'pd270', 'qnResp', 'ringSz']
                 if nDone == 1:
                     df = dT
