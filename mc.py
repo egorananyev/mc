@@ -25,7 +25,7 @@ _thisDir = os.path.dirname(os.path.abspath(__file__))
 # ====================================================================================
 ## Initial variables.
 et = 0
-expName = 'mcEcc_ct-offXbv'
+expName = 'mcEcc_ct-szRelXbv'
 # Window circles (specified in degrees of visual angles [dva]):
 #winSz = 7.2 # 5.03; calculated as 5/x=sqrt(2)/2 => x=10/sqrt(2)
 winOffX = 4.25 # 6 # 5.62
@@ -34,14 +34,14 @@ winThickness = 2 # in pixels
 fdbkLen = .25 # the length of the feedback line, in degrees
 fdbkThick = 4 # the tickness of the feedback line, in pixels
 # Timing variables:
-ISIduration = 1
+ISIduration = .5
 fixSz = .15
 # MCs:
 precompileMode = 1 # get the precompiled MCs
 grtSize = 256 # size of 256 is 71mm, or 7.2dova
 defAlpha = .2
 # Ring steps (for ct):
-ringSteps = 8
+ringSteps = 10
 # Dimensions:
 ###### 7.2dova = 71mm = 256px; 475x296mm, 563mm viewing dist ######
 dr = (1680,1050) # display resolution in px
@@ -517,6 +517,11 @@ for thisTrial in trials:
         print 'offX=' + str(offX) + '; offY=' + str(offY)
     else:
         offX = 0; offY = 0
+    if expName == 'mcEcc_ct-szRelXbv':
+        szRelL = thisTrial['szRelL']
+        szRelR = thisTrial['szRelR']
+    else:
+        szRelL = 1; szRelR = 1
 
     # View setup: Fade, gap, and fixation cross
     centTask = thisTrial['centTask']
@@ -533,11 +538,14 @@ for thisTrial in trials:
     stabQn = thisTrial['stabQn'] # do we need to ask the qn on rivalry stability?
     # If central task, the ring size is set to twice the periGap (the actual stim size):
     if centTask:
-        ringL.setSize([periGap*2,periGap*2])
-        ringR.setSize([periGap*2,periGap*2])
-        ringSz = int(periGap*2) # gets overwritten later if changed
         if expName == 'mcEcc_ct-szXv' or expName == 'mcEcc_ct-szXbv':
+            ringSz = int(periGap*2) # gets overwritten later if changed
             print 'stimSz=' + str(ringSz)
+        if expName == 'mcEcc_ct-szRelXbv':
+            ringSz = int(np.max([periGap*szRelL*2,periGap*szRelR*2]))
+            print 'szRelL=' + str(periGap*szRelL*2) + '; szRelR=' + str(periGap*szRelR*2)
+        ringL.setSize([ringSz,ringSz])
+        ringR.setSize([ringSz,ringSz])
 
     # Color, if any:
     colorEither = [[150,1,1],[330,sat,1]] # green and magenta
@@ -588,16 +596,17 @@ for thisTrial in trials:
                V_X=vR, B_theta=np.inf))) - 1
 
     # Creating a mask, which is fixed for a given trial:
-    curMask = combinedMask(fovGap, fovFade, periGap, periFade, annuR, annuWidth)
+    curMaskL = combinedMask(fovGap, fovFade, periGap*szRelL, periFade, annuR, annuWidth)
+    curMaskR = combinedMask(fovGap, fovFade, periGap*szRelR, periFade, annuR, annuWidth)
 
     # Using the mask to assign both the greyscale values and the mask for our color masks:
     if not colorL == colorR: # same colors mean no color mask
-        colMaskL.tex = (curMask + 1) / 2
+        colMaskL.tex = (curMaskL + 1) / 2
         colMaskL.color = colorL
-        colMaskL.mask = curMask
-        colMaskR.tex = (curMask + 1) / 2
+        colMaskL.mask = curMaskL
+        colMaskR.tex = (curMaskR + 1) / 2
         colMaskR.color = colorR
-        colMaskR.mask = curMask
+        colMaskR.mask = curMaskR
 
     #------Prepare to start Routine "trial"-------
     t = 0
@@ -685,11 +694,11 @@ for thisTrial in trials:
         if t < trialT:
             stimL = visual.GratingStim(win, tex=grtL[:,:,frameN%nFrames], 
                 size=(grtSize,grtSize), pos=[-winOffX+dg2px(offX), winOffY+dg2px(offY)], 
-                interpolate=False, mask=curMask, ori=90+dirL)
+                interpolate=False, mask=curMaskL, ori=90+dirL)
             stimL.draw()
             stimR = visual.GratingStim(win, tex=grtR[:,:,frameN%nFrames], 
                 size=(grtSize,grtSize), pos=[winOffX+dg2px(offX), winOffY+dg2px(offY)], 
-                interpolate=False, mask=curMask, ori=90+dirR)
+                interpolate=False, mask=curMaskR, ori=90+dirR)
             stimR.draw()
             # Drawing the color masks:
             if not colorL == colorR: # same colors mean no color mask
@@ -808,16 +817,17 @@ for thisTrial in trials:
             if len(theseKeys)>0:
                 ringL.setAutoDraw(True)
                 ringR.setAutoDraw(True)
+                szRelMax = np.max([szRelL,szRelR])
                 if 'z' in theseKeys:
-                    ringL = ringSzFn(ringL, periGap, 1) # increase the ring size
-                    ringR = ringSzFn(ringR, periGap, 1)
+                    ringL = ringSzFn(ringL, periGap*szRelMax, 1) # increase the ring size
+                    ringR = ringSzFn(ringR, periGap*szRelMax, 1)
                 elif 'x' in theseKeys:
-                    ringL = ringSzFn(ringL, periGap, -1) # decrease the ring size
-                    ringR = ringSzFn(ringR, periGap, -1)
+                    ringL = ringSzFn(ringL, periGap*szRelMax, -1) # decrease the ring size
+                    ringR = ringSzFn(ringR, periGap*szRelMax, -1)
                 elif 'c' in theseKeys:
                     ringL.setAutoDraw(False)
                     ringR.setAutoDraw(False)
-                    ringSz = int(ringL.size[0])
+                    ringSz = int(np.max([ringL.size[0],ringR.size[0]]))
                     print 'ringSz = ' + str(ringSz)
                     ringDrawn = True
                     if key_qn: # if the arrows are already drawn
@@ -881,7 +891,9 @@ for thisTrial in trials:
                                 'BsfL': BsfL, 'BsfR': BsfR,
                                 'colorL': str(colorL), 'colorR': str(colorR), 'sat': sat,
                                 'fovGap': fovGap, 'fovFade': fovFade,
-                                'periGap': periGap, 'periFade': periFade, 'offX': offX, 'offY': offY,
+                                'periGap': periGap, 'periFade': periFade,
+                                'szRelL': szRelL, 'szRelR': szRelR,
+                                'offX': offX, 'offY': offY,
                                 'trialT': trialT, 'nFrames': nFrames, 'nNa': nNa,
                                 'nf000': nf000, 'nf090': nf090, 'nf180': nf180, 'nf270': nf270,
                                 'pd000': [nf000 / (trialT * nFrames)],
@@ -890,11 +902,11 @@ for thisTrial in trials:
                                 'pd270': [nf270 / (trialT * nFrames)],
                                 'qnResp': qnResp, 'ringSz': ringSz})
                 # to preserve the column order:
-                dataCols = ['expName', 'time', 'participant', 'session', 'trialN',
-                            'dirL', 'dirR', 'vL', 'vR', 'szL', 'szR', 'sfL', 'sfR',
-                            'tfL', 'tfR', 'BvL', 'BvR', 'BsfL', 'BsfR', 'colorL', 'colorR',
-                            'sat', 'fovGap', 'fovFade', 'periGap', 'periFade', 'offX', 'offY',
-                            'trialT', 'nFrames', 'nNa', 'nf000', 'nf090', 'nf180', 'nf270', 
+                dataCols = ['expName', 'time', 'participant', 'session', 'trialN', 'dirL', 'dirR',
+                            'vL', 'vR', 'szL', 'szR', 'sfL', 'sfR', 'tfL', 'tfR', 'BvL', 'BvR',
+                            'BsfL', 'BsfR', 'colorL', 'colorR', 'sat', 'fovGap', 'fovFade', 
+                            'periGap', 'periFade', 'szRelL', 'szRelR', 'offX', 'offY', 'trialT',
+                            'nFrames', 'nNa', 'nf000', 'nf090', 'nf180', 'nf270', 
                             'pd000', 'pd090', 'pd180', 'pd270', 'qnResp', 'ringSz']
                 if nDone == 1:
                     df = dT
