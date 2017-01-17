@@ -25,7 +25,7 @@ _thisDir = os.path.dirname(os.path.abspath(__file__))
 # ====================================================================================
 ## Initial variables.
 et = 0
-expName = 'mcEcc_ct-tXbv'
+expName = 'mcEcc_ct-szRel0Xbv'
 # Window circles (specified in degrees of visual angles [dva]):
 #winSz = 7.2 # 5.03; calculated as 5/x=sqrt(2)/2 => x=10/sqrt(2)
 winOffX = 4.25 # 6 # 5.62
@@ -517,7 +517,7 @@ for thisTrial in trials:
         print 'offX=' + str(offX) + '; offY=' + str(offY)
     else:
         offX = 0; offY = 0
-    if expName == 'mcEcc_ct-szRelXbv':
+    if expName == 'mcEcc_ct-szRelXbv' or expName == 'mcEcc_ct-szRel0Xbv':
         szRelL = thisTrial['szRelL']
         szRelR = thisTrial['szRelR']
         print 'szRelL=' + str(szRelL) + '; szRelR=' + str(szRelR)
@@ -604,8 +604,15 @@ for thisTrial in trials:
                V_X=vR, B_theta=np.inf))) - 1
 
     # Creating a mask, which is fixed for a given trial:
-    curMaskL = combinedMask(fovGap, fovFade, periGap*szRelL, periFade, annuR, annuWidth)
-    curMaskR = combinedMask(fovGap, fovFade, periGap*szRelR, periFade, annuR, annuWidth)
+    if szRelL == 0:
+        curMaskR = combinedMask(fovGap, fovFade, periGap*szRelR, periFade, annuR, annuWidth)
+        curMaskL = curMaskR
+    elif szRelR == 0:
+        curMaskL = combinedMask(fovGap, fovFade, periGap*szRelL, periFade, annuR, annuWidth)
+        curMaskR = curMaskL
+    else:
+        curMaskL = combinedMask(fovGap, fovFade, periGap*szRelL, periFade, annuR, annuWidth)
+        curMaskR = combinedMask(fovGap, fovFade, periGap*szRelR, periFade, annuR, annuWidth)
 
     # Using the mask to assign both the greyscale values and the mask for our color masks:
     if not colorL == colorR: # same colors mean no color mask
@@ -700,12 +707,12 @@ for thisTrial in trials:
 
         # stimulus presentation:
         if t < trialT:
-            if t > tOffL:
+            if t > tOffL and not szRelL == 0:
                 stimL = visual.GratingStim(win, tex=grtL[:,:,frameN%nFrames], 
                     size=(grtSize,grtSize), pos=[-winOffX+dg2px(offX), winOffY+dg2px(offY)], 
                     interpolate=False, mask=curMaskL, ori=90+dirL)
                 stimL.draw()
-            if t > tOffR:
+            if t > tOffR and not szRelR == 0:
                 stimR = visual.GratingStim(win, tex=grtR[:,:,frameN%nFrames], 
                     size=(grtSize,grtSize), pos=[winOffX+dg2px(offX), winOffY+dg2px(offY)], 
                     interpolate=False, mask=curMaskR, ori=90+dirR)
