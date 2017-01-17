@@ -25,7 +25,7 @@ _thisDir = os.path.dirname(os.path.abspath(__file__))
 # ====================================================================================
 ## Initial variables.
 et = 0
-expName = 'mcEcc_ct-tRelXbv'
+expName = 'mcEcc_ct-tXbv'
 # Window circles (specified in degrees of visual angles [dva]):
 #winSz = 7.2 # 5.03; calculated as 5/x=sqrt(2)/2 => x=10/sqrt(2)
 winOffX = 4.25 # 6 # 5.62
@@ -507,7 +507,7 @@ for thisTrial in trials:
         print 'BvL=' + str(BvL) + '; BvR=' + str(BvR)
     if expName == 'mcEcc_ct-bsfXv':
         print 'BsfL=' + str(BsfL) + '; BsfR=' + str(BsfR)
-    if expName == 'mcEcc_ct-t':
+    if expName == 'mcEcc_ct-t' or expName == 'mcEcc_ct-tXbv':
         print 'trialT=' + str(trialT)
     if expName == 'mcEcc_ct-th':
         print 'thL=' + str(thL) + '; thR=' + str(thR)
