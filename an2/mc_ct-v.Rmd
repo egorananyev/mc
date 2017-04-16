@@ -1,0 +1,206 @@
+---
+title: "Motion clouds rivalry: Translational velocity"
+author: "Egor Ananyev"
+date: "April 14, 2017"
+output:
+    html_document:
+        toc: true
+---
+
+<style type="text/css">
+body, td{
+  font-family: Cambria;
+}
+code.r{
+  font-family: Inconsolata;
+}
+</style>
+
+# Preparing the data
+
+## Loading the packages and data directories
+```{r set-options, message=F}
+options(width=108)
+out=F
+# The list of subjects, the order of conditions, and the thresholds are derived from Subjects.xlsx
+library(xlsx)
+library(ggplot2)
+library(plyr)
+library(reshape)
+library(matrixStats)
+#library(splines)
+db <- '/home/egor/Dropbox/' # on Linux
+db <- '~/Dropbox/' # on Mac
+db <- '/Users/Egor/Dropbox/' # Windows
+# settings variables:
+expt <- 'mcvct'
+subjs <- c(0:3)
+sesss <- c(1:3)
+# Read in the data directories:
+dataDir <- paste(db, 'Projects/mc/data/', sep='')
+condDir <- paste(dataDir,expt,'/', sep='')
+allDirs <- dir(condDir)
+```
+
+## Plot variables
+```{r}
+# theme for plotting:
+dodge <- position_dodge(width=0)
+alpha <- .6
+themefy <- function(p) {
+    p <- p + theme_bw() + 
+         theme(panel.grid.minor.x=element_blank(), panel.grid.minor.y=element_blank(),
+            axis.text=element_text(size=8), axis.title=element_text(size=9),
+            legend.text=element_text(size=8), legend.title=element_text(size=9),
+            legend.key = element_blank(), legend.margin=unit(-.04, 'in'),
+            legend.background = element_rect(fill='transparent'))
+}
+```
+
+## Loading the data
+```{r}
+ds <- data.frame()
+for(curSubj in subjs){
+    for(curSess in sesss){
+        grepPattern <- paste(expt, '_p', curSubj, '_s', curSess, sep='')
+        sessDir <- allDirs[grep(grepPattern, allDirs)]
+        print(sessDir)
+        sessFn <- paste(condDir, sessDir, '/', sessDir, '.csv', sep='')
+        if(file.exists(sessFn)){
+            curDs <- read.csv(sessFn)
+            ds <- rbind(ds, curDs)
+        }
+    }
+}
+```
+
+## Adjusting the data set
+```{r}
+# Selecting a subset of the data:
+ss <- ds[c('participant','session','trialN','dirL','dirR','vL','vR','nf000','nf090','nf180',
+           'nf270','ringSz')]
+ss <- rename(ss, c(participant='subj', session='sess'))
+# Measuring velocities in dps:
+ss$vR = round(ss$vR*60/35,1)
+ss$vL = round(ss$vL*60/35,1)
+head(ss)
+```
+
+## Adding new columns
+```{r}
+# Creating columns for the slower and faster of the two speeds:
+ss$vMin <- rowMins(as.matrix(ss[c('vL','vR')]))
+ss$vMax <- rowMaxs(as.matrix(ss[c('vL','vR')]))
+ss$vDiff <- ss$vMax - ss$vMin
+```
+
+# Figures
+
+## Types of responses
+```{r}
+# noDir, fastDir, slowDir, transparent
+ss$noDir <- 0
+ss$noDir[ss$nf270==1] <- 1
+ss$slowDir <- 0
+ss$slowDir[ss$nf180==1 & ss$vL==ss$vMin] <- 1
+ss$slowDir[ss$nf000==1 & ss$vR==ss$vMin] <- 1
+ss$fastDir <- 0
+ss$fastDir[ss$nf180==1 & ss$vL==ss$vMax] <- 1
+ss$fastDir[ss$nf000==1 & ss$vR==ss$vMax] <- 1
+ss$transp <- 0
+ss$transp[ss$nf090==1] <- 1
+ss$resp[ss$noDir==1] <- 'no direction'
+ss$resp[ss$slowDir==1] <- 'slow\ndirection'
+ss$resp[ss$fastDir==1] <- 'fast\ndirection'
+ss$resp[ss$transp==1] <- 'transparent/\npatchy'
+ss$resp <- factor(ss$resp, levels = c('slow\ndirection','fast\ndirection','no direction',
+                                      'transparent/\npatchy'))
+```
+
+### vMin along x
+```{r}
+respVminSubj <- ddply(ss, .(subj, vMin, resp), summarise, numSubjResp = length(subj))
+respVmin <- ddply(respVminSubj, .(vMin, subj), summarise, totResp = sum(numSubjResp))
+respVminSubj <- merge(respVminSubj, respVmin, by=c('subj','vMin'))
+respVminSubj$pSubjResp <- with(respVminSubj, numSubjResp/totResp)
+respVmin <- ddply(respVminSubj, .(vMin, resp), summarise,
+                  pResp = mean(pSubjResp), seResp=sd(pSubjResp)/sqrt(length(subj)))
+respVmin$vMin <- as.factor(respVmin$vMin)
+```
+
+```{r, fig.height=3, fig.width=5}
+p <- ggplot(respVmin, aes(x=vMin, y=pResp, colour=resp, group=resp,
+                        ymin=pResp-seResp, ymax=pResp+seResp)) +
+    geom_point(position=dodge, size=1, alpha=alpha) +
+    geom_line(position=dodge, alpha=alpha) +
+    geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
+    labs(x=expression(paste('Lower Speed (', degree, '/s)', sep='')), 
+         y='Proportion of trials', colour='Response Type\n') + ylim(0,1) +
+    guides(colour=guide_legend(keyheight=.3, default.unit='inch'))
+p <- themefy(p)
+if(!out){plot(p)}else{png('mc_ct-v_respVmin.png', width=3.8, height=2.1, units='in', res=600); plot(p); dev.off()}
+```
+
+### vMax along x
+```{r}
+respVmaxSubj <- ddply(ss, .(subj, vMax, resp), summarise, numSubjResp = length(subj))
+respVmax <- ddply(respVmaxSubj, .(vMax, subj), summarise, totResp = sum(numSubjResp))
+respVmaxSubj <- merge(respVmaxSubj, respVmax, by=c('subj','vMax'))
+respVmaxSubj$pSubjResp <- with(respVmaxSubj, numSubjResp/totResp)
+respVmax <- ddply(respVmaxSubj, .(vMax, resp), summarise,
+                  pResp = mean(pSubjResp), seResp=sd(pSubjResp)/sqrt(length(subj)))
+respVmax$vMax <- as.factor(respVmax$vMax)
+```
+
+```{r, fig.height=3, fig.width=5}
+p <- ggplot(respVmax, aes(x=vMax, y=pResp, colour=resp, group=resp,
+                        ymin=pResp-seResp, ymax=pResp+seResp)) +
+    geom_point(position=dodge, size=1, alpha=alpha) +
+    geom_line(position=dodge, alpha=alpha) +
+    geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
+    labs(x=expression(paste('Higher Speed (', degree, '/s)', sep='')), 
+         y='Proportion of trials', colour='Response Type\n') + ylim(0,1) +
+    guides(colour=guide_legend(keyheight=.3, default.unit='inch'))
+p <- themefy(p)
+if(!out){plot(p)}else{png('mc_ct-v_respVmax.png', width=3.5, height=2.1, units='in', res=600); plot(p); dev.off()}
+```
+
+### 3D
+```{r}
+respVsubj <- ddply(ss, .(subj, vMin, vMax, resp), summarise, numSubjResp = length(subj))
+respV <- ddply(respVsubj, .(vMin, vMax, subj), summarise, totResp = sum(numSubjResp))
+respVsubj <- merge(respVsubj, respV, by=c('subj','vMin','vMax'))
+respVsubj$pSubjResp <- with(respVsubj, numSubjResp/totResp)
+respV <- ddply(respVsubj, .(vMin, vMax, resp), summarise,
+                  pResp = mean(pSubjResp), seResp=sd(pSubjResp)/sqrt(length(subj)))
+#respV$vMin <- as.factor(respV$vMin)
+#respV$vMax <- as.factor(respV$vMax)
+```
+
+```{r, fig.height=3, fig.width=5}
+library(plotly)
+sss <- respV[respV$resp=='slow\ndirection',]
+#p <- plot_ly(x=as.matrix(sss$vMin), y=as.matrix(sss$vMax), z=as.matrix(sss$pResp)) %>% add_surface()
+#chart_link <- plotly_POST(p, filename="surface")
+p <- plot_ly(x=sss$vMin, y=sss$vMax, z=sss$pResp, split=~sss$vMin, type='scatter3d', mode='lines')
+#p <- plot_ly(sss, x = vMin, y = vMax, z = pResp, group = vMin, type = "scatter3d", mode = "lines") 
+#p <- ggplot(respV[respV$resp=='slow\ndirection'], aes(x=vMax, y=pResp, colour=resp, group=resp,
+                        #ymin=pResp-seResp, ymax=pResp+seResp)) +
+    #geom_point(position=dodge, size=1, alpha=alpha) +
+    #geom_line(position=dodge, alpha=alpha) +
+    #geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
+    #labs(x=expression(paste('Higher Speed (', degree, '/s)', sep='')), 
+         #y='Proportion of trials', colour='Response Type\n') + ylim(0,1) +
+    #guides(colour=guide_legend(keyheight=.3, default.unit='inch'))
+#p <- themefy(p)
+#if(!out){plot(p)}else{png('mc_ct-v_respV3d.png', width=3.5, height=2.1, units='in', res=600); plot(p); dev.off()}
+```
+
+# Analyses
+
+```{r}
+# Analysis
+#library(lme4)
+#library(lmerTest)
+source(paste(db, 'Prog/R/myFunctions/pvalfn.R', sep=''))
+```
