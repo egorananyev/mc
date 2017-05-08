@@ -523,7 +523,7 @@ def anim_save(z, filename, display=True, vext=vext,
             fname = 'frame%03d.png' % frame
             full_fname = os.path.join(tmpdir, fname)
             image = np.rot90(z[..., frame])
-            imageio.imwrite(full_fname, (image*255).astype(np.uint8), compression=0, quantize=0)
+            imageio.imwrite(full_fname, (image*255).astype(np.uint8), compression=0) #, quantize=0)
             files.append(fname)
 
         if PROGRESS: print(pbar)

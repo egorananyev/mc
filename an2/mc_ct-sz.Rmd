@@ -1,0 +1,208 @@
+---
+title: "Motion clouds rivalry: Stimulus Size"
+author: "Egor Ananyev"
+date: "April 21, 2017"
+output:
+    html_document:
+        toc: true
+---
+
+<style type="text/css">
+body, td{
+  font-family: Cambria;
+}
+code.r{
+  font-family: Inconsolata;
+}
+</style>
+
+# Preparing the data
+
+## Loading the packages and data directories
+```{r set-options, message=F}
+options(width=108)
+out=F
+# The list of subjects, the order of conditions, and the thresholds are derived from Subjects.xlsx
+library(xlsx)
+library(ggplot2)
+library(plyr)
+library(reshape)
+library(matrixStats)
+#library(splines)
+db <- '/home/egor/Dropbox/' # on Linux
+db <- '/Users/Egor/Dropbox/' # Windows
+#db <- '~/Dropbox/' # on Mac
+# settings variables:
+expt <- 'mcEcc_ct-szXbv'
+subjs <- c(0:3)
+sesss <- c(1:2)
+# Read in the data directories:
+dataDir <- paste(db, 'Projects/mc/data/', sep='')
+condDir <- paste(dataDir,expt,'/', sep='')
+allDirs <- dir(condDir)
+```
+
+## Plot variables
+```{r, message=FALSE, warning=FALSE}
+# theme for plotting:
+dodge <- position_dodge(width=0)
+alpha <- .7
+themefy <- function(p) {
+    p <- p + theme_bw() + 
+         theme(panel.grid.minor.x=element_blank(), panel.grid.minor.y=element_blank(),
+            axis.text=element_text(size=8), axis.title=element_text(size=9),
+            legend.text=element_text(size=8), legend.title=element_text(size=9),
+            legend.key = element_blank(), legend.margin=unit(-.04, 'in'),
+            legend.background = element_rect(fill='transparent'))
+}
+cc <- c('#a6cee3','#1f78b4','#b2df8a','#33a02c','#fb9a99','#e31a1c','#fdbf6f')
+```
+
+## Loading the data
+```{r}
+colsOfInt <- c('participant','session','trialN', #info
+               'periGap', #IVs
+               'nf000','nf090','nf180','nf270','ringSz') #DVs
+df <- data.frame()
+for(curSubj in subjs){
+    for(curSess in sesss){
+        grepPattern <- paste(expt, '_p', curSubj, '_s', curSess, sep='')
+        sessDir <- allDirs[grep(grepPattern, allDirs)]
+        print(sessDir)
+        sessFn <- paste(condDir, sessDir, '/', sessDir, '.csv', sep='')
+        if(file.exists(sessFn)){
+            curDs <- read.csv(sessFn)
+            df <- rbind(df, curDs[,colsOfInt])
+        }
+    }
+}
+```
+
+## Adjusting the data set
+```{r}
+# Selecting a subset of the data:
+ds <- df #[colsOfInt]
+ds <- rename(ds, c(participant='subj', session='sess'))
+# Size conversions:
+ds$stimSzDeg <- round((ds$periGap*2+32)/35,1)
+ds$ringSzDeg <- round((ds$ringSz+32)/35,1)
+ds$ringSzP <- round(ds$ringSzDeg/ds$stimSzDeg,2)
+# The full-field should be coded as 'no center-surround', or 'no ring':
+ds$ring <- 0
+ds$ring[ds$ringSzDeg<ds$stimSzDeg] <- 1
+head(ds)
+```
+
+# Types of responses
+```{r}
+# noDir, fastDir, slowDir, transparent
+ds$slow <- 0
+ds$slow[ds$nf270==1] <- 1
+ds$fast <- 0
+ds$fast[ds$nf180==1] <- 1
+ds$patchy <- 0
+ds$patchy[ds$nf090==1] <- 1
+ds$transp <- 0
+ds$transp[ds$nf000==1] <- 1
+ds$resp[ds$slow==1] <- 'static'
+ds$resp[ds$fast==1] <- 'dynamic'
+ds$resp[ds$patchy==1] <- 'patchy'
+ds$resp[ds$transp==1] <- 'transp'
+ds$resp <- factor(ds$resp, levels = c('static','dynamic','patchy','transparent'))
+head(ds)
+```
+
+```{r}
+respSubj <- ddply(ds, .(subj, stimSzDeg, resp), summarise, numSubjResp = length(subj))
+resp <- ddply(respSubj, .(stimSzDeg, subj), summarise, totResp = sum(numSubjResp))
+respSubj <- merge(respSubj, resp, by=c('subj','stimSzDeg'))
+respSubj$pSubjResp <- with(respSubj, numSubjResp/totResp)
+resp <- ddply(respSubj, .(stimSzDeg, resp), summarise,
+                  pResp = mean(pSubjResp), seResp=sd(pSubjResp)/sqrt(length(subj)))
+resp$stimSzDeg <- as.factor(resp$stimSzDeg)
+head(resp)
+```
+
+```{r, fig.height=3, fig.width=5}
+p <- ggplot(resp, aes(x=stimSzDeg, y=pResp, colour=resp, group=resp,
+                        ymin=pResp-seResp, ymax=pResp+seResp)) +
+    geom_point(position=dodge, size=1, alpha=alpha) +
+    geom_line(position=dodge, alpha=alpha) +
+    geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
+    labs(x=expression(paste('Stimulus Size (', degree, ')', sep='')),
+         y='Proportion of Trials', colour='Response\nType') + ylim(0,1) +
+    guides(colour=guide_legend(keyheight=.3, default.unit='inch'))
+p <- themefy(p)
+if(!out){plot(p)}else{png('mc_ct-sz_resp.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
+```
+
+# Center size
+```{r}
+sumRingSzPSubj <- ddply(ds, .(subj, stimSzDeg, resp), summarise,
+                       ringSzPSubj = mean(ringSzP))
+sumRingSzP <- ddply(sumRingSzPSubj, .(resp, stimSzDeg), summarise,
+                  ringSzP = mean(ringSzPSubj), 
+                  ringSzPSe = sd(ringSzPSubj)/sqrt(length(subj)))
+sumRingSzP$stimSzDeg <- as.factor(sumRingSzP$stimSzDeg)
+head(sumRingSzP)
+```
+
+```{r, fig.height=3, fig.width=5}
+p <- ggplot(sumRingSzP, aes(x=stimSzDeg, y=ringSzP, colour=resp, group=resp,
+                        ymin=ringSzP-ringSzPSe, ymax=ringSzP+ringSzPSe)) +
+    geom_point(position=dodge, size=1, alpha=alpha) +
+    geom_line(position=dodge, alpha=alpha) +
+    geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
+    labs(x=expression(paste('Stimulus Size (', degree, ')', sep='')),
+         y='Center/Stimulus Size',
+         colour='Response\nType') + ylim(0,1) +
+    guides(colour=guide_legend(keyheight=.3, default.unit='inch'))
+p <- themefy(p)
+if(!out){plot(p)}else{png('mc_ct-sz_ringSz.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
+```
+
+# Proportion center/surround (inset)
+```{r}
+sumRingPSubj <- ddply(ds, .(subj, stimSzDeg, resp), summarise,
+                       ringPSubj = mean(ring))
+sumRingP <- ddply(sumRingPSubj, .(resp, stimSzDeg), summarise,
+                  ringP = mean(ringPSubj), 
+                  ringPSe = sd(ringPSubj)/sqrt(length(subj)))
+sumRingP$stimSzDeg <- as.factor(sumRingP$stimSzDeg)
+head(sumRingP)
+```
+
+```{r, fig.height=3, fig.width=5}
+p <- ggplot(sumRingP, aes(x=stimSzDeg, y=ringP, colour=resp, group=resp,
+                        ymin=ringP-ringPSe, ymax=ringP+ringPSe)) +
+    geom_point(position=dodge, size=.5, alpha=alpha, show.legend = F) +
+    geom_line(position=dodge, alpha=alpha, show.legend = F) +
+    geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
+    scale_y_continuous(breaks=c(0,.5,1), limits=c(0,1)) + 
+    theme_bw() + theme(panel.grid.minor.x=element_blank(), panel.grid.minor.y=element_blank(),
+        axis.text.x = element_blank(), axis.title=element_blank(),
+        legend.text = element_blank(), legend.title=element_blank(),
+        legend.key = element_blank())
+if(!out){plot(p)}else{png('mc_ct-sz_ringP_inset.png', width=.8, height=.6, units='in', res=600); plot(p); dev.off()}
+```
+
+```{r, fig.height=3, fig.width=5}
+p <- ggplot(sumRingP, aes(x=stimSzDeg, y=ringP, colour=resp, group=resp,
+                        ymin=ringP-ringPSe, ymax=ringP+ringPSe)) +
+    geom_point(position=dodge, size=1, alpha=alpha) +
+    geom_line(position=dodge, alpha=alpha) +
+    geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
+    labs(x=expression(paste('Stimulus Size (', degree, ')', sep='')),
+         y='Static Center/Dynamic Surround       ', colour='Response\nType') + ylim(0,1) +
+    guides(colour=guide_legend(keyheight=.3, default.unit='inch'))
+p <- themefy(p)
+if(!out){plot(p)}else{png('mc_ct-sz_ringP.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
+```
+
+# Analyses
+```{r}
+# Analysis
+#library(lme4)
+#library(lmerTest)
+source(paste(db, 'Prog/R/myFunctions/pvalfn.R', sep=''))
+```

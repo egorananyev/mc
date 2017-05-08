@@ -1,0 +1,524 @@
+---
+title: "Motion clouds rivalry: Velocity bandwidth"
+author: "Egor Ananyev"
+date: "April 28, 2017"
+output:
+    html_document:
+        toc: true
+---
+
+<style type="text/css">
+body, td{
+  font-family: Cambria;
+}
+code.r{
+  font-family: Inconsolata;
+}
+</style>
+
+# Preparing the data
+
+## Loading the packages and data directories
+```{r set-options, message=F}
+options(width=108)
+out=F
+# The list of subjects, the order of conditions, and the thresholds are derived from Subjects.xlsx
+library(xlsx)
+library(ggplot2)
+library(plyr)
+library(reshape)
+library(matrixStats)
+#library(splines)
+db <- '/home/egor/Dropbox/' # on Linux
+db <- '/Users/Egor/Dropbox/' # Windows
+#db <- '~/Dropbox/' # on Mac
+# settings variables:
+expt <- 'mcEcc_ct-bv'
+subjs <- c(0:3)
+sesss <- c(1:3)
+# Read in the data directories:
+dataDir <- paste(db, 'Projects/mc/data/', sep='')
+condDir <- paste(dataDir,expt,'/', sep='')
+allDirs <- dir(condDir)
+```
+
+## Plot variables
+```{r}
+# theme for plotting:
+dodge <- position_dodge(width=0)
+alpha <- 1 #.6
+themefy <- function(p) {
+    p <- p + theme_bw() + 
+         theme(panel.grid.minor.x=element_blank(), panel.grid.minor.y=element_blank(),
+            axis.text=element_text(size=8), axis.title=element_text(size=9),
+            legend.text=element_text(size=8), legend.title=element_text(size=9),
+            legend.key = element_blank(), legend.margin=unit(-.04, 'in'),
+            legend.background = element_rect(fill='transparent'))
+}
+#cc <- c('#a6cee3','#1f78b4','#b2df8a','#33a02c','#fb9a99','#e31a1c','#fdbf6f')
+cc <- c('#fed976','#c7e9b4','#7fcdbb','#41b6c4','#1d91c0','#225ea8','#0c2c84')
+```
+
+## Loading the data
+```{r}
+colsOfInt <- c('participant','session','trialN', #info
+               'BvL','BvR', #IVs
+               'nf000','nf090','nf180', 'nf270','ringSz') #DVs
+df <- data.frame()
+for(curSubj in subjs){
+    for(curSess in sesss){
+        grepPattern <- paste(expt, '_p', curSubj, '_s', curSess, sep='')
+        sessDir <- allDirs[grep(grepPattern, allDirs)]
+        print(sessDir)
+        sessFn <- paste(condDir, sessDir, '/', sessDir, '.csv', sep='')
+        if(file.exists(sessFn)){
+            curDs <- read.csv(sessFn)
+            df <- rbind(df, curDs[,colsOfInt])
+        }
+    }
+}
+head(df)
+```
+
+## Adjusting the data set
+```{r}
+# Selecting a subset of the data:
+ds <- df
+ds <- rename(ds, c(participant='subj', session='sess', BvL='bvL', BvR='bvR'))
+# Measuring velocities in dps:
+ds$bvR = round(ds$bvR*60/35,1)
+ds$bvL = round(ds$bvL*60/35,1)
+# The minimum size of the ring in the old paradigm corresponded to full field, so recoding:
+ringSzMax=258
+#ds$ringSz[ds$ringSz==25.8] <- ringSzMax
+ds$ringSz[ds$ringSz==max(ds[ds$subj==0,'ringSz']) & ds$subj==0] <- ringSzMax
+ds$ringSz[ds$ringSz==max(ds[ds$subj==1,'ringSz']) & ds$subj==1] <- ringSzMax
+ds$ringSz[ds$ringSz==max(ds[ds$subj==2,'ringSz']) & ds$subj==2] <- ringSzMax
+ds$ringSz[ds$ringSz==max(ds[ds$subj==3,'ringSz']) & ds$subj==3] <- ringSzMax
+ds$ringSzDeg <- round(ds$ringSz/35,2)
+ds$ringSzP <- round(ds$ringSz/258,2)
+# The full-field should be coded as 'no center-surround', or 'no ring':
+ds$ring <- 0
+ds$ring[ds$ringSz!=ringSzMax] = 1
+head(ds)
+```
+
+## Adding new columns
+```{r}
+# Creating columns for the slower and faster of the two speeds:
+ds$bvMin <- rowMins(as.matrix(ds[c('bvL','bvR')]))
+ds$bvMax <- rowMaxs(as.matrix(ds[c('bvL','bvR')]))
+ds$bvDiff <- ds$bvMax - ds$bvMin
+```
+
+# Types of responses
+```{r}
+# noDir, fastDir, slowDir, transparent
+ds$slow <- 0
+ds$slow[ds$nf270==1] <- 1
+ds$fast <- 0
+ds$fast[ds$nf180==1] <- 1
+ds$patchy <- 0
+ds$patchy[ds$nf090==1] <- 1
+ds$transp <- 0
+ds$transp[ds$nf000==1] <- 1
+ds$resp[ds$slow==1] <- 'slow'
+ds$resp[ds$fast==1] <- 'fast'
+ds$resp[ds$patchy==1] <- 'patchy'
+ds$resp[ds$transp==1] <- 'transparent'
+ds$resp <- factor(ds$resp, levels = c('slow','fast','patchy','transparent'))
+head(ds)
+```
+
+## Slow
+```{r}
+sumSlowSubj <- ddply(ds, .(subj, bvMin, bvMax), summarise, pSubjResp = mean(slow))
+sumSlow <- ddply(sumSlowSubj, .(bvMin, bvMax), summarise,
+                  pResp = mean(pSubjResp), 
+                  seResp = sd(pSubjResp)/sqrt(length(subj)))
+sumSlow$seResp[which(is.na(sumSlow$seResp))] <- 0.02
+sumSlow$seResp[which(sumSlow$seResp==0)] <- 0.02
+```
+
+```{r, fig.height=3, fig.width=5}
+p <- ggplot(sumSlow, aes(x=factor(bvMin), y=pResp, colour=factor(bvMax), group=factor(bvMax),
+                        ymin=pResp-seResp, ymax=pResp+seResp)) +
+    geom_point(position=dodge, size=1, alpha=alpha) +
+    geom_line(position=dodge, alpha=alpha) +
+    geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
+    labs(x=expression(paste('Lower Speed (', degree, '/s)', sep='')), 
+         y='Slow Responses', colour='Higher Speed') + ylim(0,1) +
+    guides(colour=guide_legend(keyheight=.2, default.unit='inch')) +
+    scale_colour_manual(values=cc[2:7])
+p <- themefy(p)
+if(!out){plot(p)}else{png('mc_ct-bv_respSlowMin.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
+```
+
+```{r, fig.height=3, fig.width=5}
+p <- ggplot(sumSlow[sumSlow$bvMin==0,], aes(x=factor(bvMax), y=pResp, group=factor(bvMin), 
+                        ymin=pResp-seResp, ymax=pResp+seResp)) +
+    geom_point(position=dodge, size=1, alpha=1) +
+    geom_line(position=dodge, alpha=1) +
+    geom_linerange(position=dodge, show.legend=F, alpha=alpha) + 
+    scale_y_continuous(breaks=c(0,1), limits=c(0,1)) + 
+    theme_bw() + theme(panel.grid.minor.x=element_blank(), panel.grid.minor.y=element_blank(),
+        axis.text.x = element_blank(), axis.title=element_blank(), axis.text=element_text(size=6),
+        legend.text = element_blank(), legend.title=element_blank(),
+        legend.key = element_blank())
+if(!out){plot(p)}else{png('mc_ct-bv_respSlowMax_inset.png', width=.8, height=.6, units='in', res=600); plot(p); dev.off()}
+```
+
+```{r, fig.height=3, fig.width=5}
+p <- ggplot(sumSlow, aes(x=factor(bvMax), y=pResp, colour=factor(bvMin), group=factor(bvMin),
+                        ymin=pResp-seResp, ymax=pResp+seResp)) +
+    geom_point(position=dodge, size=1, alpha=alpha) +
+    geom_line(position=dodge, alpha=alpha) +
+    geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
+    labs(x=expression(paste('Higher Speed (', degree, '/s)', sep='')), 
+         y='Slow Responses', colour='Lower Speed') + ylim(0,1) +
+    guides(colour=guide_legend(keyheight=.2, default.unit='inch')) +
+    scale_colour_manual(values=cc)
+p <- themefy(p)
+if(!out){plot(p)}else{png('mc_ct-bv_respSlowMax.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
+```
+
+## Fast
+```{r}
+sumFastSubj <- ddply(ds, .(subj, bvMin, bvMax), summarise, pSubjResp = mean(fast))
+sumFast <- ddply(sumFastSubj, .(bvMin, bvMax), summarise,
+                  pResp = mean(pSubjResp), 
+                  seResp = sd(pSubjResp)/sqrt(length(subj)))
+sumFast$seResp[which(is.na(sumFast$seResp))] <- 0.02
+sumFast$seResp[which(sumFast$seResp==0)] <- 0.02
+```
+
+```{r, fig.height=3, fig.width=5}
+p <- ggplot(sumFast, aes(x=factor(bvMin), y=pResp, colour=factor(bvMax), group=factor(bvMax),
+                        ymin=pResp-seResp, ymax=pResp+seResp)) +
+    geom_point(position=dodge, size=1, alpha=alpha) +
+    geom_line(position=dodge, alpha=alpha) +
+    geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
+    labs(x=expression(paste('Lower Speed (', degree, '/s)', sep='')), 
+         y='Fast Responses', colour='Higher Speed') + ylim(0,1) +
+    guides(colour=guide_legend(keyheight=.2, default.unit='inch')) +
+    scale_colour_manual(values=cc[2:7])
+p <- themefy(p)
+if(!out){plot(p)}else{png('mc_ct-bv_respFastMin.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
+```
+
+```{r, fig.height=3, fig.width=5}
+p <- ggplot(sumFast[sumSlow$bvMin==0,], aes(x=factor(bvMax), y=pResp, group=factor(bvMin), 
+                        ymin=pResp-seResp, ymax=pResp+seResp)) +
+    geom_point(position=dodge, size=1, alpha=1) +
+    geom_line(position=dodge, alpha=1) +
+    geom_linerange(position=dodge, show.legend=F, alpha=alpha) + 
+    scale_y_continuous(breaks=c(0,1), limits=c(0,1)) + 
+    theme_bw() + theme(panel.grid.minor.x=element_blank(), panel.grid.minor.y=element_blank(),
+        axis.text.x = element_blank(), axis.title=element_blank(), axis.text=element_text(size=6),
+        legend.text = element_blank(), legend.title=element_blank(),
+        legend.key = element_blank())
+if(!out){plot(p)}else{png('mc_ct-bv_respFastMax_inset.png', width=.8, height=.6, units='in', res=600); plot(p); dev.off()}
+```
+
+```{r, fig.height=3, fig.width=5}
+p <- ggplot(sumFast, aes(x=factor(bvMax), y=pResp, colour=factor(bvMin), group=factor(bvMin),
+                        ymin=pResp-seResp, ymax=pResp+seResp)) +
+    geom_point(position=dodge, size=1, alpha=alpha) +
+    geom_line(position=dodge, alpha=alpha) +
+    geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
+    labs(x=expression(paste('Higher Speed (', degree, '/s)', sep='')), 
+         y='Fast Responses', colour='Lower Speed') + ylim(0,1) +
+    guides(colour=guide_legend(keyheight=.2, default.unit='inch')) +
+    scale_colour_manual(values=cc)
+p <- themefy(p)
+if(!out){plot(p)}else{png('mc_ct-bv_respFastMax.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
+```
+
+## Transparent
+```{r}
+sumTranspSubj <- ddply(ds, .(subj, bvMin, bvMax), summarise, pSubjResp = mean(transp))
+sumTransp <- ddply(sumTranspSubj, .(bvMin, bvMax), summarise,
+                  pResp = mean(pSubjResp), 
+                  seResp = sd(pSubjResp)/sqrt(length(subj)))
+( ddply(ds, .(subj), summarise, pSubjResp=mean(transp), nSubjResp=sum(transp)) )
+sumTransp$seResp[which(is.na(sumTransp$seResp))] <- 0.02
+sumTransp$seResp[which(sumTransp$seResp==0)] <- 0.02
+```
+
+```{r, fig.height=3, fig.width=5}
+p <- ggplot(sumTransp, aes(x=factor(bvMin), y=pResp, colour=factor(bvMax), group=factor(bvMax),
+                        ymin=pResp-seResp, ymax=pResp+seResp)) +
+    geom_point(position=dodge, size=1, alpha=alpha) +
+    geom_line(position=dodge, alpha=alpha) +
+    geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
+    labs(x=expression(paste('Lower Speed (', degree, '/s)', sep='')), 
+         y='Transparency Responses', colour='Higher Speed') + ylim(0,1) +
+    guides(colour=guide_legend(keyheight=.2, default.unit='inch')) +
+    scale_colour_manual(values=cc[2:7])
+p <- themefy(p)
+if(!out){plot(p)}else{png('mc_ct-bv_respTranspMin.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
+```
+
+```{r, fig.height=3, fig.width=5}
+p <- ggplot(sumTransp[sumTransp$bvMin==0,], aes(x=factor(bvMax), y=pResp, group=factor(bvMin), 
+                        ymin=pResp-seResp, ymax=pResp+seResp)) +
+    geom_point(position=dodge, size=1, alpha=1) +
+    geom_line(position=dodge, alpha=1) +
+    geom_linerange(position=dodge, show.legend=F, alpha=alpha) + 
+    scale_y_continuous(breaks=c(0,1), limits=c(0,1)) + 
+    theme_bw() + theme(panel.grid.minor.x=element_blank(), panel.grid.minor.y=element_blank(),
+        axis.text.x = element_blank(), axis.title=element_blank(), axis.text=element_text(size=6),
+        legend.text = element_blank(), legend.title=element_blank(),
+        legend.key = element_blank())
+if(!out){plot(p)}else{png('mc_ct-bv_respTranspMax_inset.png', width=.8, height=.6, units='in', res=600); plot(p); dev.off()}
+```
+
+```{r, fig.height=3, fig.width=5}
+p <- ggplot(sumTransp, aes(x=factor(bvMax), y=pResp, colour=factor(bvMin), group=factor(bvMin),
+                        ymin=pResp-seResp, ymax=pResp+seResp)) +
+    geom_point(position=dodge, size=1, alpha=alpha) +
+    geom_line(position=dodge, alpha=alpha) +
+    geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
+    labs(x=expression(paste('Higher Speed (', degree, '/s)', sep='')), 
+         y='Transparency Responses', colour='Lower Speed') + ylim(0,1) +
+    guides(colour=guide_legend(keyheight=.2, default.unit='inch')) +
+    scale_colour_manual(values=cc)
+p <- themefy(p)
+if(!out){plot(p)}else{png('mc_ct-bv_respTranspMax.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
+```
+
+# Center-surround
+```{r}
+( ddply(ds, .(subj, resp), summarise, pSubjResp = mean(ring), nSubjResp = sum(ring)) )
+```
+
+## Slow-center/fast-surround
+```{r}
+sumSlowRingSubj <- ddply(ds[ds$resp=='slow',], .(subj, bvMin, bvMax), summarise,
+                       pSubjResp = mean(ring))
+sumSlowRing <- ddply(sumSlowRingSubj, .(bvMin, bvMax), summarise,
+                  pResp = mean(pSubjResp), 
+                  seResp = sd(pSubjResp)/sqrt(length(subj)))
+sumSlowRing$seResp[which(is.na(sumSlowRing$seResp))] <- 0.02
+sumSlowRing$seResp[which(sumSlowRing$seResp==0)] <- 0.02
+# sumSlowRing$pResp[which(is.na(sumSlowRing$seResp))] <- NA
+```
+
+```{r, fig.height=3, fig.width=5}
+p <- ggplot(sumSlowRing, aes(x=factor(bvMin), y=factor(bvMax), colour=pResp, size=I(1+.1/seResp)))+ 
+    geom_point() + scale_colour_gradient(low='green', high='red', limits=c(0,1)) +
+    labs(x=expression(paste('Lower Speed (', degree, '/s)', sep='')), 
+         y=expression(paste('Higher Speed (', degree, '/s)', sep='')), 
+         colour='Slow-Center/\nFast-Surround') + 
+    guides(colour=guide_legend(keyheight=.2, default.unit='inch'))
+p <- themefy(p)
+if(!out){plot(p)}else{png('mc_ct-bv_ringSlow2d.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
+```
+
+## Patchy
+```{r}
+sumPatchySubj <- ddply(ds, .(subj, bvMin, bvMax), summarise, pSubjResp = mean(patchy))
+sumPatchy <- ddply(sumPatchySubj, .(bvMin, bvMax), summarise,
+                  pResp = mean(pSubjResp), 
+                  seResp = sd(pSubjResp)/sqrt(length(subj)))
+sumPatchy$seResp[which(is.na(sumPatchy$seResp))] <- 0.02
+sumPatchy$seResp[which(sumPatchy$seResp==0)] <- 0.02
+```
+
+```{r, fig.height=3, fig.width=5}
+p <- ggplot(sumPatchy, aes(x=factor(bvMin), y=pResp, colour=factor(bvMax), group=factor(bvMax),
+                        ymin=pResp-seResp, ymax=pResp+seResp)) +
+    geom_point(position=dodge, size=1, alpha=alpha) +
+    geom_line(position=dodge, alpha=alpha) +
+    geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
+    labs(x=expression(paste('Lower Speed (', degree, '/s)', sep='')), 
+         y='Patchy Responses', colour='Higher Speed') + ylim(0,1) +
+    guides(colour=guide_legend(keyheight=.2, default.unit='inch')) +
+    scale_colour_manual(values=cc[2:7])
+p <- themefy(p)
+if(!out){plot(p)}else{png('mc_ct-bv_respPatchyMin.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
+```
+
+```{r, fig.height=3, fig.width=5}
+p <- ggplot(sumPatchy[sumPatchy$bvMin==0,], aes(x=factor(bvMax), y=pResp, group=factor(bvMin), 
+                        ymin=pResp-seResp, ymax=pResp+seResp)) +
+    geom_point(position=dodge, size=1, alpha=1) +
+    geom_line(position=dodge, alpha=1) +
+    geom_linerange(position=dodge, show.legend=F, alpha=alpha) + 
+    scale_y_continuous(breaks=c(0,1), limits=c(0,1)) + 
+    theme_bw() + theme(panel.grid.minor.x=element_blank(), panel.grid.minor.y=element_blank(),
+        axis.text.x = element_blank(), axis.title=element_blank(), axis.text=element_text(size=6),
+        legend.text = element_blank(), legend.title=element_blank(),
+        legend.key = element_blank())
+if(!out){plot(p)}else{png('mc_ct-bv_respPatchyMax_inset.png', width=.8, height=.6, units='in', res=600); plot(p); dev.off()}
+```
+
+```{r, fig.height=3, fig.width=5}
+p <- ggplot(sumPatchy, aes(x=factor(bvMax), y=pResp, colour=factor(bvMin), group=factor(bvMin),
+                        ymin=pResp-seResp, ymax=pResp+seResp)) +
+    geom_point(position=dodge, size=1, alpha=alpha) +
+    geom_line(position=dodge, alpha=alpha) +
+    geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
+    labs(x=expression(paste('Higher Speed (', degree, '/s)', sep='')), 
+         y='Patchy Responses', colour='Lower Speed') + ylim(0,1) +
+    guides(colour=guide_legend(keyheight=.2, default.unit='inch')) +
+    scale_colour_manual(values=cc)
+p <- themefy(p)
+if(!out){plot(p)}else{png('mc_ct-bv_respPatchyMax.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
+```
+
+# Center-surround
+```{r}
+( ddply(ds, .(subj, resp), summarise, pSubjResp = mean(ring), nSubjResp = sum(ring)) )
+```
+
+## Slow-center/fast-surround
+```{r}
+sumSlowRingSubj <- ddply(ds[ds$resp=='slow',], .(subj, bvMin, bvMax), summarise,
+                       pSubjResp = mean(ring))
+sumSlowRing <- ddply(sumSlowRingSubj, .(bvMin, bvMax), summarise,
+                  pResp = mean(pSubjResp), 
+                  seResp = sd(pSubjResp)/sqrt(length(subj)))
+# sumSlowRing$seResp[which(is.na(sumSlowRing$seResp))] <- 0.02
+# sumSlowRing$seResp[which(sumSlowRing$seResp==0)] <- 0.02
+sumSlowRing$pResp[which(is.na(sumSlowRing$seResp))] <- NA
+```
+
+```{r, fig.height=3, fig.width=5}
+p <- ggplot(sumSlowRing, aes(x=factor(bvMin), y=pResp, colour=factor(bvMax), group=factor(bvMax),
+                        ymin=pResp-seResp, ymax=pResp+seResp)) +
+    geom_point(position=dodge, size=1, alpha=alpha) +
+    geom_line(position=dodge, alpha=alpha) +
+    geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
+    labs(x=expression(paste('Lower Speed (', degree, '/s)', sep='')), 
+         y='Slow-Center/Fast-Surround', colour='Higher Speed') + ylim(0,1) +
+    guides(colour=guide_legend(keyheight=.2, default.unit='inch')) +
+    scale_colour_manual(values=cc[2:7])
+p <- themefy(p)
+if(!out){plot(p)}else{png('mc_ct-bv_ringSlowMin.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
+```
+
+```{r, fig.height=3, fig.width=5}
+p <- ggplot(sumSlowRing, aes(x=factor(bvMax), y=pResp, colour=factor(bvMin), group=factor(bvMin),
+                        ymin=pResp-seResp, ymax=pResp+seResp)) +
+    geom_point(position=dodge, size=1, alpha=alpha) +
+    geom_line(position=dodge, alpha=alpha) +
+    geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
+    labs(x=expression(paste('Lower Speed (', degree, '/s)', sep='')), 
+         y='Slow-Center/Fast-Surround', colour='Higher Speed') + ylim(0,1) +
+    guides(colour=guide_legend(keyheight=.2, default.unit='inch')) +
+    scale_colour_manual(values=cc[1:6])
+p <- themefy(p)
+if(!out){plot(p)}else{png('mc_ct-bv_ringSlowMax.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
+```
+
+## Fast-center/slow-surround
+```{r}
+sumFastRingSubj <- ddply(ds[ds$resp=='fast',], .(subj, bvMin, bvMax), summarise,
+                       pSubjResp = mean(ring))
+sumFastRing <- ddply(sumFastRingSubj, .(bvMin, bvMax), summarise,
+                  pResp = mean(pSubjResp), 
+                  seResp = sd(pSubjResp)/sqrt(length(subj)))
+sumFastRing$pResp[which(is.na(sumFastRing$seResp))] <- NA
+#sumFastRing$seResp[which(is.na(sumFastRing$seResp))] <- 0
+# sumFastRing$seResp[which(is.na(sumFastRing$seResp))] <- 0.02
+# sumFastRing$seResp[which(sumFastRing$seResp==0)] <- 0.02
+```
+
+```{r, fig.height=3, fig.width=5}
+p <- ggplot(sumFastRing, aes(x=factor(bvMin), y=pResp, colour=factor(bvMax), group=factor(bvMax),
+                        ymin=pResp-seResp, ymax=pResp+seResp)) +
+    geom_point(position=dodge, size=1, alpha=alpha) +
+    geom_line(position=dodge, alpha=alpha) +
+    geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
+    labs(x=expression(paste('Lower Speed (', degree, '/s)', sep='')), 
+         y='Fast-Center/Fast-Surround', colour='Higher Speed') + ylim(0,1) +
+    guides(colour=guide_legend(keyheight=.2, default.unit='inch')) +
+    scale_colour_manual(values=cc[2:7])
+p <- themefy(p)
+if(!out){plot(p)}else{png('mc_ct-bv_ringFastMin.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
+```
+
+```{r, fig.height=3, fig.width=5}
+p <- ggplot(sumFastRing, aes(x=factor(bvMax), y=pResp, colour=factor(bvMin), group=factor(bvMin),
+                        ymin=pResp-seResp, ymax=pResp+seResp)) +
+    geom_point(position=dodge, size=1, alpha=alpha) +
+    geom_line(position=dodge, alpha=alpha) +
+    geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
+    labs(x=expression(paste('Lower Speed (', degree, '/s)', sep='')), 
+         y='Fast-Center/Slow-Surround', colour='Higher Speed') + ylim(0,1) +
+    guides(colour=guide_legend(keyheight=.2, default.unit='inch')) +
+    scale_colour_manual(values=cc[1:6])
+p <- themefy(p)
+if(!out){plot(p)}else{png('mc_ct-bv_ringFastMax.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
+```
+
+# Center size: Proportion of ring size
+
+## Slow
+```{r}
+sumRingSzPSubj <- ddply(ds[ds$resp=='slow' & ds$ring==1,], .(subj, bvMin, bvMax), summarise,
+                       ringSzPSubj = mean(ringSzP), ringN = sum(ring))
+sumRingSzP <- ddply(sumRingSzPSubj[sumRingSzPSubj$ringN>1,], .(bvMin, bvMax), summarise,
+                  ringSzP = mean(ringSzPSubj), 
+                  ringSzPSe = sd(ringSzPSubj)/sqrt(length(subj)))
+#sumRingSz$ringSzPSe[which(is.na(sumRingSzP$ringSzPSe))] <- 0
+# sumRingSzP$ringSzP[which(is.na(sumRingSzP$ringSzPSe))] <- NA
+sumRingSzP$ringSzP[which(sumRingSzP$ringSzPSe==0)] <- NA
+# sumRingSzP$ringSzPSe[which(sumRingSzP$ringSzPSe==0)] <- 0.02
+# sumRingSzP$ringSzPSe[which(is.na(sumRingSzP$ringSzPSe))] <- 0.02
+```
+
+```{r, fig.height=3, fig.width=5}
+p <- ggplot(sumRingSzP[sumRingSzP$bvMax>-1,], aes(x=factor(bvMin), y=ringSzP, 
+                                                  colour=factor(bvMax), group=factor(bvMax),
+                        ymin=ringSzP-ringSzPSe, ymax=ringSzP+ringSzPSe)) +
+    geom_point(position=dodge, size=1, alpha=alpha) +
+    geom_line(position=dodge, alpha=alpha) +
+    geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
+    labs(x=expression(paste('Lower Speed (', degree, '/s)', sep='')), 
+         y='Center Size', colour='Higher Speed') + ylim(0,1) +
+    guides(colour=guide_legend(keyheight=.2, default.unit='inch')) +
+    scale_colour_manual(values=cc[2:7])
+p <- themefy(p)
+if(!out){plot(p)}else{png('mc_ct-bv_ringSzPVmin.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
+```
+
+```{r, fig.height=3, fig.width=5}
+p <- ggplot(sumRingSzP[sumRingSzP$bvMax>-1,], aes(x=factor(bvMax), y=ringSzP, 
+                                                  colour=factor(bvMin), group=factor(bvMin),
+                        ymin=ringSzP-ringSzPSe, ymax=ringSzP+ringSzPSe)) +
+    geom_point(position=dodge, size=1, alpha=alpha) +
+    geom_line(position=dodge, alpha=alpha) +
+    geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
+    labs(x=expression(paste('Higher Speed (', degree, '/s)', sep='')), 
+         y='Center Size', colour='Lower Speed') + ylim(0,1) +
+    guides(colour=guide_legend(keyheight=.2, default.unit='inch')) +
+    scale_colour_manual(values=cc[2:7])
+p <- themefy(p)
+if(!out){plot(p)}else{png('mc_ct-bv_ringSzPVmax.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
+```
+
+### Inset
+```{r, fig.height=3, fig.width=5}
+p <- ggplot(sumRingSzP[sumRingSzP$bvMin==0,], aes(x=factor(bvMax), y=ringSzP, group=factor(bvMin), 
+                        ymin=ringSzP-ringSzPSe, ymax=ringSzP+ringSzPSe)) +
+    #geom_point(position=dodge, size=.5, alpha=.5) +
+    geom_line(position=dodge, alpha=1) +
+    geom_linerange(position=dodge, show.legend=F, alpha=alpha) + 
+    scale_y_continuous(breaks=c(0,1), limits=c(0,1)) + 
+    theme_bw() + theme(panel.grid.minor.x=element_blank(), panel.grid.minor.y=element_blank(),
+        axis.text.x = element_text(size=4), axis.title=element_blank(), 
+        axis.text=element_text(size=4),
+        legend.text = element_blank(), legend.title=element_blank(),
+        legend.key = element_blank())
+if(!out){plot(p)}else{png('mc_ct-bv_ringSzP_inset.png', width=.9, height=.6, units='in', res=600); plot(p); dev.off()}
+```
+
+# Analyses
+```{r}
+# Analysis
+#library(lme4)
+#library(lmerTest)
+source(paste(db, 'Prog/R/myFunctions/pvalfn.R', sep=''))
+```

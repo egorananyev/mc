@@ -1,0 +1,287 @@
+---
+title: "Motion clouds rivalry: Relative onset"
+author: "Egor Ananyev"
+date: "April 23, 2017"
+output:
+    html_document:
+        toc: true
+---
+
+<style type="text/css">
+body, td{
+  font-family: Cambria;
+}
+code.r{
+  font-family: Inconsolata;
+}
+</style>
+
+# Preparing the data
+
+## Loading the packages and data directories
+```{r set-options, message=F}
+options(width=108)
+out=F
+# The list of subjects, the order of conditions, and the thresholds are derived from Subjects.xlsx
+library(xlsx)
+library(ggplot2)
+library(plyr)
+library(reshape)
+library(matrixStats)
+#library(splines)
+db <- '/home/egor/Dropbox/' # on Linux
+db <- '/Users/Egor/Dropbox/' # Windows
+#db <- '~/Dropbox/' # on Mac
+# settings variables:
+expt <- 'mcEcc_ct-tRelXbv'
+subjs <- c(0:3)
+# Read in the data directories:
+dataDir <- paste(db, 'Projects/mc/data/', sep='')
+condDir <- paste(dataDir,expt,'/', sep='')
+allDirs <- dir(condDir)
+allDirs <- allDirs[grep(paste(expt,'_p',sep=''), allDirs)]
+```
+
+## Plot variables
+```{r, message=FALSE, warning=FALSE}
+# theme for plotting:
+dodge <- position_dodge(width=0)
+alpha <- .8
+themefy <- function(p) {
+    p <- p + theme_bw() + 
+         theme(panel.grid.minor.x=element_blank(), panel.grid.minor.y=element_blank(),
+            axis.text=element_text(size=8), axis.title=element_text(size=9),
+            legend.text=element_text(size=8), legend.title=element_text(size=9),
+            legend.key = element_blank(), legend.margin=unit(-.04, 'in'),
+            legend.background = element_rect(fill='transparent'))
+}
+cc <- c('#a6cee3','#1f78b4','#b2df8a','#33a02c','#fb9a99','#e31a1c','#fdbf6f')
+```
+
+## Loading the data
+```{r}
+colsOfInt <- c('participant','session','trialN', #info
+               'trialT', 'tOffL', 'tOffR', 'BvL', 'BvR', #IVs
+               'nf000','nf090','nf180','nf270','ringSz') #DVs
+df <- data.frame()
+for(curSess in allDirs){
+    print(curSess)
+    sessFn <- paste(condDir, curSess, '/', curSess, '.csv', sep='')
+    if(file.exists(sessFn)){
+        curDs <- read.csv(sessFn)
+        df <- rbind(df, curDs[,colsOfInt])
+    }
+}
+```
+
+## Adjusting the data set
+```{r}
+# Selecting a subset of the data:
+ds <- df #[colsOfInt]
+ds <- rename(ds, c(participant='subj', session='sess'))
+# Size conversions:
+ds$ringSzDeg <- round((ds$ringSz+32)/35,1)
+ds$ringSzP <- round(ds$ringSzDeg/max(ds$ringSzDeg),2)
+# The full-field should be coded as 'no center-surround', or 'no ring':
+ds$ring <- 0
+ds$ring[ds$ringSzP < 1] <- 1
+# tOffSlow/fast
+ds$tOffStat <- 0
+ds$tOffStat[ds$BvL==0.01] <- ds$tOffL[ds$BvL==0.01]
+ds$tOffStat[ds$BvR==0.01] <- ds$tOffR[ds$BvR==0.01]
+ds$tOffDyna <- 0
+ds$tOffDyna[ds$BvL==9.6] <- ds$tOffL[ds$BvL==9.6]
+ds$tOffDyna[ds$BvR==9.6] <- ds$tOffR[ds$BvR==9.6]
+head(ds)
+```
+
+# Types of responses
+```{r}
+# noDir, fastDir, slowDir, transparent
+ds$slow <- 0
+ds$slow[ds$nf270==1] <- 1
+ds$fast <- 0
+ds$fast[ds$nf180==1] <- 1
+ds$patchy <- 0
+ds$patchy[ds$nf090==1] <- 1
+ds$transp <- 0
+ds$transp[ds$nf000==1] <- 1
+ds$resp[ds$slow==1] <- 'static'
+ds$resp[ds$fast==1] <- 'dynamic'
+ds$resp[ds$patchy==1] <- 'patchy'
+ds$resp[ds$transp==1] <- 'transparent'
+ds$resp <- factor(ds$resp, levels = c('static','dynamic','patchy','transparent'))
+head(ds)
+```
+
+## Static onset
+```{r}
+ss <- ds[ds$tOffDyna==0,]
+respStatSubj <- ddply(ss, .(subj, tOffStat, resp), summarise, numSubjResp = length(subj))
+respStat <- ddply(respStatSubj, .(tOffStat, subj), summarise, totResp = sum(numSubjResp))
+respStatSubj <- merge(respStatSubj, respStat, by=c('subj','tOffStat'))
+respStatSubj$pSubjResp <- with(respStatSubj, numSubjResp/totResp)
+respStat <- ddply(respStatSubj, .(tOffStat, resp), summarise,
+                  pResp = mean(pSubjResp), seResp=sd(pSubjResp)/sqrt(length(subj)))
+respStat$tOffStat <- round(respStat$tOffStat,1)
+respStat$tOffStat <- as.factor(respStat$tOffStat)
+head(respStat)
+```
+
+```{r, fig.height=3, fig.width=5}
+p <- ggplot(respStat, aes(x=tOffStat, y=pResp, colour=resp, group=resp,
+                        ymin=pResp-seResp, ymax=pResp+seResp)) +
+    geom_point(position=dodge, size=1, alpha=alpha) +
+    geom_line(position=dodge, alpha=alpha) +
+    geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
+    labs(x='Static Stimulus Onset (s)',
+         y='Proportion of Trials', colour='Response\nType') + ylim(0,1) +
+    guides(colour=guide_legend(keyheight=.3, default.unit='inch'))
+p <- themefy(p)
+if(!out){plot(p)}else{png('mc_ct-relT_respStat.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
+```
+
+## Dynamic onset
+```{r}
+ss <- ds[ds$tOffStat==0,]
+respDynaSubj <- ddply(ss, .(subj, tOffDyna, resp), summarise, numSubjResp = length(subj))
+respDyna <- ddply(respDynaSubj, .(tOffDyna, subj), summarise, totResp = sum(numSubjResp))
+respDynaSubj <- merge(respDynaSubj, respDyna, by=c('subj','tOffDyna'))
+respDynaSubj$pSubjResp <- with(respDynaSubj, numSubjResp/totResp)
+respDyna <- ddply(respDynaSubj, .(tOffDyna, resp), summarise,
+                  pResp = mean(pSubjResp), seResp=sd(pSubjResp)/sqrt(length(subj)))
+respDyna$tOffDyna <- round(respDyna$tOffDyna,1)
+respDyna$tOffDyna <- as.factor(respDyna$tOffDyna)
+head(respDyna)
+```
+
+```{r, fig.height=3, fig.width=5}
+p <- ggplot(respDyna, aes(x=tOffDyna, y=pResp, colour=resp, group=resp,
+                        ymin=pResp-seResp, ymax=pResp+seResp)) +
+    geom_point(position=dodge, size=1, alpha=alpha) +
+    geom_line(position=dodge, alpha=alpha) +
+    geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
+    labs(x='Dynamic Stimulus Onset (s)',
+         y='Proportion of Trials', colour='Response\nType') + ylim(0,1) +
+    guides(colour=guide_legend(keyheight=.3, default.unit='inch'))
+p <- themefy(p)
+if(!out){plot(p)}else{png('mc_ct-relT_respDyna.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
+```
+
+# Center size
+
+## Static onset
+```{r}
+ss <- ds[ds$tOffDyna==0,]
+sumRingSzPSubj <- ddply(ss, .(subj, tOffStat, resp), summarise,
+                       ringSzPSubj = mean(ringSzP))
+sumRingSzP <- ddply(sumRingSzPSubj, .(resp, tOffStat), summarise,
+                  ringSzP = mean(ringSzPSubj), 
+                  ringSzPSe = sd(ringSzPSubj)/sqrt(length(subj)))
+sumRingSzP$tOffStat <- round(sumRingSzP$tOffStat,1)
+sumRingSzP$tOffStat <- as.factor(sumRingSzP$tOffStat)
+head(sumRingSzP)
+```
+
+```{r, fig.height=3, fig.width=5}
+p <- ggplot(sumRingSzP, aes(x=tOffStat, y=ringSzP, colour=resp, group=resp,
+                        ymin=ringSzP-ringSzPSe, ymax=ringSzP+ringSzPSe)) +
+    geom_point(position=dodge, size=1, alpha=alpha) +
+    geom_line(position=dodge, alpha=alpha) +
+    geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
+    labs(x='Static Stimulus Onset (s)',
+         y='Center/Stimulus Size',
+         colour='Response\nType') + ylim(0,1) +
+    guides(colour=guide_legend(keyheight=.3, default.unit='inch'))
+p <- themefy(p)
+if(!out){plot(p)}else{png('mc_ct-tRel_ringSzStat.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
+```
+
+## Dynamic onset
+```{r}
+ss <- ds[ds$tOffStat==0,]
+sumRingSzPSubj <- ddply(ss, .(subj, tOffDyna, resp), summarise,
+                       ringSzPSubj = mean(ringSzP))
+sumRingSzP <- ddply(sumRingSzPSubj, .(resp, tOffDyna), summarise,
+                  ringSzP = mean(ringSzPSubj), 
+                  ringSzPSe = sd(ringSzPSubj)/sqrt(length(subj)))
+sumRingSzP$tOffDyna <- round(sumRingSzP$tOffDyna,1)
+sumRingSzP$tOffDyna <- as.factor(sumRingSzP$tOffDyna)
+head(sumRingSzP)
+```
+
+```{r, fig.height=3, fig.width=5}
+p <- ggplot(sumRingSzP, aes(x=tOffDyna, y=ringSzP, colour=resp, group=resp,
+                        ymin=ringSzP-ringSzPSe, ymax=ringSzP+ringSzPSe)) +
+    geom_point(position=dodge, size=1, alpha=alpha) +
+    geom_line(position=dodge, alpha=alpha) +
+    geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
+    labs(x='Dynamic Stimulus Onset (s)',
+         y='Center/Stimulus Size',
+         colour='Response\nType') + ylim(0,1) +
+    guides(colour=guide_legend(keyheight=.3, default.unit='inch'))
+p <- themefy(p)
+if(!out){plot(p)}else{png('mc_ct-tRel_ringSzDyna.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
+```
+
+# Proportion center/surround (inset)
+
+## Static onset
+```{r}
+ss <- ds[ds$tOffDyna==0,]
+sumRingPSubj <- ddply(ss, .(subj, tOffStat, resp), summarise,
+                       ringPSubj = mean(ring))
+sumRingP <- ddply(sumRingPSubj, .(resp, tOffStat), summarise,
+                  ringP = mean(ringPSubj), 
+                  ringPSe = sd(ringPSubj)/sqrt(length(subj)))
+sumRingP$tOffStat <- as.factor(sumRingP$tOffStat)
+head(sumRingP)
+```
+
+```{r, fig.height=3, fig.width=5}
+p <- ggplot(sumRingP, aes(x=tOffStat, y=ringP, colour=resp, group=resp,
+                        ymin=ringP-ringPSe, ymax=ringP+ringPSe)) +
+    geom_point(position=dodge, size=.5, alpha=alpha, show.legend = F) +
+    geom_line(position=dodge, alpha=alpha, show.legend = F) +
+    geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
+    scale_y_continuous(breaks=c(0,.5,1), limits=c(0,1)) + 
+    theme_bw() + theme(panel.grid.minor.x=element_blank(), panel.grid.minor.y=element_blank(),
+        axis.text.x = element_blank(), axis.title=element_blank(),
+        legend.text = element_blank(), legend.title=element_blank(),
+        legend.key = element_blank())
+if(!out){plot(p)}else{png('mc_ct-tRel_ringPstat_inset.png', width=.8, height=.6, units='in', res=600); plot(p); dev.off()}
+```
+
+## Dynamic onset
+```{r}
+ss <- ds[ds$tOffStat==0,]
+sumRingPSubj <- ddply(ss, .(subj, tOffDyna, resp), summarise,
+                       ringPSubj = mean(ring))
+sumRingP <- ddply(sumRingPSubj, .(resp, tOffDyna), summarise,
+                  ringP = mean(ringPSubj), 
+                  ringPSe = sd(ringPSubj)/sqrt(length(subj)))
+sumRingP$tOffDyna <- as.factor(sumRingP$tOffDyna)
+head(sumRingP)
+```
+
+```{r, fig.height=3, fig.width=5}
+p <- ggplot(sumRingP, aes(x=tOffDyna, y=ringP, colour=resp, group=resp,
+                        ymin=ringP-ringPSe, ymax=ringP+ringPSe)) +
+    geom_point(position=dodge, size=.5, alpha=alpha, show.legend = F) +
+    geom_line(position=dodge, alpha=alpha, show.legend = F) +
+    geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
+    scale_y_continuous(breaks=c(0,.5,1), limits=c(0,1)) + 
+    theme_bw() + theme(panel.grid.minor.x=element_blank(), panel.grid.minor.y=element_blank(),
+        axis.text.x = element_blank(), axis.title=element_blank(),
+        legend.text = element_blank(), legend.title=element_blank(),
+        legend.key = element_blank())
+if(!out){plot(p)}else{png('mc_ct-tRel_ringPdyna_inset.png', width=.8, height=.6, units='in', res=600); plot(p); dev.off()}
+```
+
+# Analyses
+```{r}
+# Analysis
+#library(lme4)
+#library(lmerTest)
+source(paste(db, 'Prog/R/myFunctions/pvalfn.R', sep=''))
+```
