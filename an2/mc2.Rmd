@@ -46,8 +46,9 @@ themefy <- function(p) {
             legend.key = element_blank(), legend.margin=margin(t=-.04, unit='in'),
             legend.background = element_rect(fill='transparent'))
 }
-cc <- c('#a6cee3','#1f78b4','#b2df8a','#33a02c','#fb9a99','#e31a1c','#fdbf6f')
+# cc <- c('#a6cee3','#1f78b4','#b2df8a','#33a02c','#fb9a99','#e31a1c','#fdbf6f')
 # cc <- c('#fed976','#c7e9b4','#7fcdbb','#41b6c4','#1d91c0','#225ea8','#0c2c84')
+cc <- c('#e31a1c','#fdbf6f','#a6cee3','#1f78b4','#b2df8a','#33a02c','#fb9a99')
 ```
 
 ## Loading the data
@@ -129,7 +130,7 @@ p <- ggplot(thresh, aes(x=targTpeak, y=threshMean, colour=targMask,
     labs(x='Target Peak Time (s)', y='Log Contrast Threshold', colour='Target-Mask') +
     scale_x_continuous(breaks=unique(thresh$targTpeak)) + 
     guides(colour=guide_legend(keyheight=.3, default.unit='inch')) +
-    scale_colour_manual(values=cc[c(1,2,6,5)])
+    scale_colour_manual(values=cc[c(2,1,6,5)])
 p <- themefy(p)
 if(!out){plot(p)}else{png('mc2_targTpeak_cols.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
 ```
@@ -148,7 +149,7 @@ p <- ggplot(threshSs, aes(x=targTpeak, y=threshMean, colour=targMask, alpha=alph
     labs(x='Target Peak Time (s)', y='Log Contrast Threshold', colour='Target-Mask') +
     scale_x_continuous(breaks=unique(thresh$targTpeak)) + scale_alpha(guide='none') +
     guides(colour=guide_legend(keyheight=.3, default.unit='inch')) +
-    scale_colour_manual(values=cc[c(1,2,6,5)])
+    scale_colour_manual(values=cc[c(2,1,6,5)])
 p <- themefy(p)
 if(!out){plot(p)}else{png('mc2_targTpeak_cols-1.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
 ```

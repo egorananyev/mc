@@ -28,6 +28,8 @@ library(ggplot2)
 library(plyr)
 library(reshape)
 library(matrixStats)
+library(lme4)
+library(BayesFactor)
 #library(splines)
 db <- '/home/egor/Dropbox/' # on Linux
 db <- '/Users/Egor/Dropbox/' # Windows
@@ -79,6 +81,7 @@ for(curSess in allDirs){
 # Selecting a subset of the data:
 ds <- df #[colsOfInt]
 ds <- rename(ds, c(participant='subj', session='sess'))
+ds$subj <- as.factor(ds$subj)
 # Size conversions:
 ds$ringSzDeg <- round((ds$ringSz+32)/35,1)
 ds$ringSzP <- round(ds$ringSzDeg/max(ds$ringSzDeg),2)
@@ -132,6 +135,33 @@ p <- themefy(p)
 if(!out){plot(p)}else{png('mc_ct-t_resp.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
 ```
 
+```{r, fig.height=3, fig.width=5}
+p <- ggplot(resp[resp$resp=='static',], aes(x=trialT, y=pResp, colour=resp, group=resp,
+                        ymin=pResp-seResp, ymax=pResp+seResp)) +
+    geom_point(position=dodge, size=1, alpha=alpha) +
+    geom_line(position=dodge, alpha=alpha) +
+    geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
+    labs(x='Trial Duration (s)',
+         y='Proportion of Trials', colour='Response\nType') + ylim(0,1) +
+    guides(colour=guide_legend(keyheight=.3, default.unit='inch'))
+p <- themefy(p)
+if(!out){plot(p)}else{png('mc_ct-t_resp-1-stat.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
+```
+
+```{r, fig.height=3, fig.width=5}
+p <- ggplot(resp[resp$resp!='transparent',], aes(x=trialT, y=pResp, colour=resp, group=resp,
+                        ymin=pResp-seResp, ymax=pResp+seResp)) +
+    geom_point(position=dodge, size=1, alpha=alpha) +
+    geom_line(position=dodge, alpha=alpha) +
+    geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
+    labs(x='Trial Duration (s)',
+         y='Proportion of Trials', colour='Response\nType') + ylim(0,1) +
+    guides(colour=guide_legend(keyheight=.3, default.unit='inch'))
+p <- themefy(p)
+if(!out){plot(p)}else{png('mc_ct-t_resp-0-noTransp.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
+```
+
+
 # Center size
 ```{r}
 sumRingSzPSubj <- ddply(ds, .(subj, trialT, resp), summarise,
@@ -156,6 +186,32 @@ p <- ggplot(sumRingSzP, aes(x=trialT, y=ringSzP, colour=resp, group=resp,
     guides(colour=guide_legend(keyheight=.3, default.unit='inch'))
 p <- themefy(p)
 if(!out){plot(p)}else{png('mc_ct-t_ringSz.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
+```
+
+```{r, fig.height=3, fig.width=5}
+p <- ggplot(sumRingSzP[sumRingSzP$resp=='static',], aes(x=trialT, y=ringSzP, colour=resp, group=resp,
+                        ymin=ringSzP-ringSzPSe, ymax=ringSzP+ringSzPSe)) +
+    geom_point(position=dodge, size=1, alpha=alpha) +
+    geom_line(position=dodge, alpha=alpha) +
+    geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
+    labs(x='Trial Duration (s)',
+         y='Center Size (P)',
+         colour='Response\nType') + ylim(0,1) +
+    guides(colour=guide_legend(keyheight=.3, default.unit='inch'))
+p <- themefy(p)
+if(!out){plot(p)}else{png('mc_ct-t_ringSz-statOnly.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
+```
+
+
+```{r}
+ss <- ds[ds$trialT<=1,]
+m <- lmer(ringSzP ~ trialT + (1|subj), data=ss)
+summary(m)
+anova(m)
+summary(lm(ringSzP ~ trialT, data=ss))
+bfBase <- lmBF(ringSzP ~ subj, data=ss, whichRandom = 'subj')
+bfT <- lmBF(ringSzP ~ trialT + subj, data=ss, whichRandom='subj')
+as.vector(bfT / bfBase)
 ```
 
 # Proportion center/surround (inset)

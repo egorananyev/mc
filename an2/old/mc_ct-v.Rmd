@@ -55,8 +55,7 @@ themefy <- function(p) {
             axis.text=element_text(size=8), axis.title=element_text(size=9),
             legend.text=element_text(size=8), legend.title=element_text(size=9),
             legend.key = element_blank(), legend.margin=margin(t=-.04, unit='in'),
-            legend.background = element_rect(fill='transparent'),
-            plot.title=element_text(face='bold'))
+            legend.background = element_rect(fill='transparent'))
 }
 #cc <- c('#a6cee3','#1f78b4','#b2df8a','#33a02c','#fb9a99','#e31a1c','#fdbf6f')
 cc <- c('#fed976','#c7e9b4','#7fcdbb','#41b6c4','#1d91c0','#225ea8','#0c2c84')
@@ -82,8 +81,8 @@ for(curSubj in subjs){
 ## Adjusting the data set
 ```{r}
 # Selecting a subset of the data:
-ds <- df[c('participant','session','trialN','dirL','dirR','vL','vR','nf000','nf090',
-           'nf180', 'nf270','ringSz')]
+ds <- df[c('participant','session','trialN','dirL','dirR','vL','vR','nf000','nf090','nf180',
+           'nf270','ringSz')]
 ds <- rename(ds, c(participant='subj', session='sess'))
 ds$subj <- as.factor(ds$subj)
 # Measuring velocities in dps:
@@ -121,9 +120,6 @@ ds$noDir[ds$nf270==1] <- 1
 ds$slowDir <- 0
 ds$slowDir[ds$nf180==1 & ds$vL==ds$vMin & ds$vL!=ds$vR] <- 1
 ds$slowDir[ds$nf000==1 & ds$vR==ds$vMin & ds$vL!=ds$vR] <- 1
-ds$slow <- 0
-ds$slow[ds$noDir==1] <- 1
-ds$slow[ds$slowDir==1] <- 1
 ds$fastDir <- 0
 ds$fastDir[ds$nf180==1 & ds$vL==ds$vMax & ds$vL!=ds$vR] <- 1
 ds$fastDir[ds$nf000==1 & ds$vR==ds$vMax & ds$vL!=ds$vR] <- 1
@@ -205,54 +201,6 @@ sumResp
 ```
 -->
 
-## Slow
-```{r}
-sumSlowSubj <- ddply(ds, .(subj, vMin, vMax), summarise, 
-                     pSubjResp = mean(slow))
-sumSlow <- ddply(sumSlowSubj, .(vMin, vMax), summarise,
-                  pResp = mean(pSubjResp), 
-                  seResp = sd(pSubjResp)/sqrt(length(subj)))
-```
-
-```{r, fig.height=3, fig.width=5}
-p <- ggplot(sumSlow, aes(x=factor(vMin), y=pResp, colour=factor(vMax), group=factor(vMax),
-                        ymin=pResp-seResp, ymax=pResp+seResp)) +
-    geom_point(position=dodge, size=1, alpha=alpha) +
-    geom_line(position=dodge, alpha=alpha) +
-    geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
-    labs(x=expression(paste('Lower Speed (', degree, '/s)', sep='')), 
-         y='Slow Dominance', colour='Higher Speed') + ylim(0,1) +
-    guides(colour=guide_legend(keyheight=.2, default.unit='inch')) +
-    scale_colour_manual(values=cc[2:7])
-p <- themefy(p)
-if(!out){plot(p)}else{png('mc_ct-v_slowVmin.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
-```
-
-```{r, fig.height=3, fig.width=5}
-p <- ggplot(sumSlow, aes(x=factor(vMax), y=pResp, colour=factor(vMin), group=factor(vMin),
-                        ymin=pResp-seResp, ymax=pResp+seResp)) +
-    geom_point(position=dodge, size=1, alpha=alpha) +
-    geom_line(position=dodge, alpha=alpha) +
-    geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
-    labs(x=expression(paste('Higher Speed (', degree, '/s)', sep='')), 
-         y='Slow Dominance', colour='Lower Speed') + ylim(0,1) +
-    guides(colour=guide_legend(keyheight=.2, default.unit='inch')) +
-    scale_colour_manual(values=cc)
-p <- themefy(p)
-if(!out){plot(p)}else{png('mc_ct-v_slowVmax.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
-```
-
-```{r}
-summary(glmer(slow ~ vMin * vMax + (1|subj), data=ds, family='binomial'))
-bfVmin <- lmBF(slow ~ vMin + subj, data=ds, whichRandom = 'subj')
-bfVmax <- lmBF(slow ~ vMax + subj, data=ds, whichRandom = 'subj')
-bfSum <- lmBF(slow ~ vMin + vMax + subj, data=ds, whichRandom = 'subj')
-bfInt <- lmBF(slow ~ vMin * vMax + subj, data=ds, whichRandom = 'subj')
-print(paste('vMax:', as.vector(bfSum / bfVmin)))
-print(paste('vMin:', as.vector(bfSum / bfVmax)))
-print(paste('interaction:', as.vector(bfInt / bfSum)))
-```
-
 ## No-direction responses
 ```{r}
 sumNoDirSubj <- ddply(ds, .(subj, vMin, vMax), summarise, pSubjResp = mean(noDir))
@@ -274,7 +222,6 @@ p <- ggplot(sumNoDir, aes(x=factor(vMin), y=pResp, colour=factor(vMax), group=fa
 p <- themefy(p)
 if(!out){plot(p)}else{png('mc_ct-v_noDirVmin.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
 ```
-
 ```{r, fig.height=3, fig.width=5}
 sumSs <- sumNoDir
 sumSs$pResp[sumSs$vMax>3] <- NA
@@ -325,9 +272,9 @@ bfVmin <- lmBF(noDir ~ vMin + subj, data=ds, whichRandom = 'subj')
 bfVmax <- lmBF(noDir ~ vMax + subj, data=ds, whichRandom = 'subj')
 bfSum <- lmBF(noDir ~ vMin + vMax + subj, data=ds, whichRandom = 'subj')
 bfInt <- lmBF(noDir ~ vMin * vMax + subj, data=ds, whichRandom = 'subj')
-print(paste('vMax:', as.vector(bfSum / bfVmin)))
-print(paste('vMin:', as.vector(bfSum / bfVmax)))
-print(paste('interaction:', as.vector(bfInt / bfSum)))
+as.vector(bfSum / bfVmin) # vMax:
+as.vector(bfSum / bfVmax) # vMin:
+as.vector(bfInt / bfSum) # interaction:
 ```
 
 <!--
@@ -371,11 +318,9 @@ p <- ggplot(sumSlowDir, aes(x=factor(vMin), y=pResp, colour=factor(vMax), group=
     guides(colour=guide_legend(keyheight=.2, default.unit='inch')) +
     scale_colour_manual(values=cc[2:7])
 p <- themefy(p)
-pSlowDir <- p + ggtitle('a') + theme(legend.position='none')
 if(!out){plot(p)}else{png('mc_ct-v_slowDirVmin.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
 ```
 
-### Inset
 ```{r, echo=FALSE}
 p <- ggplot(sumSlowDir[sumSlowDir$vMin==0,], aes(x=factor(vMax), y=pResp, group=factor(vMin), 
                         ymin=pResp-seResp, ymax=pResp+seResp)) +
@@ -800,18 +745,4 @@ bfInt <- lmBF(ringSzP ~ vMin * vMax + subj, data=ss, whichRandom = 'subj')
 as.vector(bfSum / bfVmin) # vMax:
 as.vector(bfSum / bfVmax) # vMin:
 as.vector(bfInt / bfSum) # interaction:
-```
-
-# Publication plots
-```{r}
-if(out){
-    library(gridExtra)
-    vp <- grid::viewport(x=.324, y=.373, width=.12, height=.3)
-    vp2 <- grid::viewport(x=.8355, y=.373, width=.11, height=.3)
-    jpeg('mc_ct-v_s1.jpg', width=7, height=2.1, units='in', res=600)
-    grid.arrange(pSlowDir, pFastDir, ncol=2, widths=c(2.55/5,2.45/5))
-    print(pSlowIn, vp=vp)
-    print(pCSIn, vp=vp2)
-    dev.off()
-}
 ```
