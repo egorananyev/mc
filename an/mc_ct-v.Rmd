@@ -30,6 +30,7 @@ library(reshape)
 library(matrixStats)
 library(lme4)
 library(BayesFactor)
+library(gridExtra)
 #library(splines)
 db <- '/home/egor/Dropbox/' # on Linux
 db <- '/Users/Egor/Dropbox/' # Windows
@@ -89,12 +90,14 @@ ds$subj <- as.factor(ds$subj)
 # Measuring velocities in dps:
 ds$vR = round(ds$vR*60/35,1)
 ds$vL = round(ds$vL*60/35,1)
+ds$vR[ds$vR>=1] = round(ds$vR[ds$vR>=1])
+ds$vL[ds$vL>=1] = round(ds$vL[ds$vL>=1])
 head(ds)
 ```
 
 ## Adding new columns
 ```{r}
-# Creating columns for the slower and faster of the two speeds:
+# Creating columns for the slower and faster of the two velocities:
 ds$vMin <- rowMins(as.matrix(ds[c('vL','vR')]))
 ds$vMax <- rowMaxs(as.matrix(ds[c('vL','vR')]))
 ds$vDiff <- ds$vMax - ds$vMin
@@ -155,56 +158,6 @@ sumResp <- merge(sumResp, sumRespSE, by=c('resp','ring'))
 sumResp
 ```
 
-<!--
-## vMin along x
-```{r}
-# respVminSubj <- ddply(ds, .(subj, vMin, resp), summarise, numSubjResp = length(subj))
-# respVmin <- ddply(respVminSubj, .(vMin, subj), summarise, totResp = sum(numSubjResp))
-# respVminSubj <- merge(respVminSubj, respVmin, by=c('subj','vMin'))
-# respVminSubj$pSubjResp <- with(respVminSubj, numSubjResp/totResp)
-# respVmin <- ddply(respVminSubj, .(vMin, resp), summarise,
-#                   pResp = mean(pSubjResp), seResp=sd(pSubjResp)/sqrt(length(subj)))
-# respVmin$vMin <- as.factor(respVmin$vMin)
-```
-
-```{r, fig.height=3, fig.width=5}
-# p <- ggplot(respVmin, aes(x=vMin, y=pResp, colour=resp, group=resp,
-#                         ymin=pResp-seResp, ymax=pResp+seResp)) +
-#     geom_point(position=dodge, size=1, alpha=alpha) +
-#     geom_line(position=dodge, alpha=alpha) +
-#     geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
-#     labs(x=expression(paste('Lower Speed (', degree, '/s)', sep='')), 
-#          y='Proportion of Trials', colour='Response Type\n') + ylim(0,1) +
-#     guides(colour=guide_legend(keyheight=.3, default.unit='inch'))
-# p <- themefy(p)
-# if(!out){plot(p)}else{png('mc_ct-v_respVmin.png', width=3.8, height=2.1, units='in', res=600); plot(p); dev.off()}
-```
-
-## vMax along x
-```{r}
-# respVmaxSubj <- ddply(ds, .(subj, vMax, resp), summarise, numSubjResp = length(subj))
-# respVmax <- ddply(respVmaxSubj, .(vMax, subj), summarise, totResp = sum(numSubjResp))
-# respVmaxSubj <- merge(respVmaxSubj, respVmax, by=c('subj','vMax'))
-# respVmaxSubj$pSubjResp <- with(respVmaxSubj, numSubjResp/totResp)
-# respVmax <- ddply(respVmaxSubj, .(vMax, resp), summarise,
-#                   pResp = mean(pSubjResp), seResp=sd(pSubjResp)/sqrt(length(subj)))
-# respVmax$vMax <- as.factor(respVmax$vMax)
-```
-
-```{r, fig.height=3, fig.width=5}
-# p <- ggplot(respVmax, aes(x=vMax, y=pResp, colour=resp, group=resp,
-#                         ymin=pResp-seResp, ymax=pResp+seResp)) +
-#     geom_point(position=dodge, size=1, alpha=alpha) +
-#     geom_line(position=dodge, alpha=alpha) +
-#     geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
-#     labs(x=expression(paste('Higher Speed (', degree, '/s)', sep='')), 
-#          y='Proportion of Trials', colour='Response Type\n') + ylim(0,1) +
-#     guides(colour=guide_legend(keyheight=.3, default.unit='inch'))
-# p <- themefy(p)
-# if(!out){plot(p)}else{png('mc_ct-v_respVmax.png', width=3.5, height=2.1, units='in', res=600); plot(p); dev.off()}
-```
--->
-
 ## Slow
 ```{r}
 sumSlowSubj <- ddply(ds, .(subj, vMin, vMax), summarise, 
@@ -214,34 +167,80 @@ sumSlow <- ddply(sumSlowSubj, .(vMin, vMax), summarise,
                   seResp = sd(pSubjResp)/sqrt(length(subj)))
 ```
 
+### Plots
+
+#### 2D
+```{r, fig.height=3, fig.width=5}
+p <- ggplot(sumSlow, aes(x=factor(vMin), y=factor(vMax), color=pResp)) + 
+    geom_point(size=4) + scale_colour_gradient(limits=c(0,1), breaks=c(0,.5,1)) +
+    geom_point(data=sumSlow, shape=1, aes(x=factor(vMin), y=factor(vMax), size=1),
+               show.legend=F, color ='lightgrey') +
+    labs(x=expression(paste('Lower Velocity (', degree, '/s)', sep='')), 
+         y=expression(paste('Higher Velocity (', degree, '/s)', sep='')), 
+         color='Slow\nDominance\n(P trials)\n') + 
+    guides(color=guide_colorbar(barwidth=1, barheight=4))
+( p <- themefy(p) )
+p2dSlow <- p + ggtitle('a')
+# if(!out){plot(p)}else{png('mc_ct-v_slow2d2.png', width=3.2, height=2.1, units='in', res=600); plot(p); dev.off()}
+```
+
+##### vMin (inset)
+```{r, fig.height=3, fig.width=5}
+pSlowIn <- ggplot(sumSlow[sumSlow$vMin==0,], aes(x=factor(vMax), y=pResp, 
+                                                 group=factor(vMin), 
+                        ymin=pResp-seResp, ymax=pResp+seResp)) +
+    geom_point(position=dodge, size=.5, alpha=alpha) +
+    geom_line(position=dodge, alpha=alpha) +
+    geom_linerange(position=dodge, show.legend=F, alpha=alpha) + 
+    scale_y_continuous(breaks=c(0,.5,1), labels=c('0','','1'), limits=c(0,1)) + 
+    theme_bw() + theme(panel.grid.minor.x=element_blank(), 
+                       panel.grid.minor.y=element_blank(),
+        axis.text.x = element_blank(), axis.title=element_blank(),
+        legend.text = element_blank(), legend.title=element_blank(),
+        legend.key = element_blank(), plot.background=element_rect(fill='grey'),
+        axis.text.y = element_text(size=6))
+```
+
+#### Slower velocity along x-axis
 ```{r, fig.height=3, fig.width=5}
 p <- ggplot(sumSlow, aes(x=factor(vMin), y=pResp, colour=factor(vMax), group=factor(vMax),
                         ymin=pResp-seResp, ymax=pResp+seResp)) +
     geom_point(position=dodge, size=1, alpha=alpha) +
     geom_line(position=dodge, alpha=alpha) +
     geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
-    labs(x=expression(paste('Lower Speed (', degree, '/s)', sep='')), 
-         y='Slow Dominance', colour='Higher Speed') + ylim(0,1) +
+    labs(x=expression(paste('Lower Velocity (', degree, '/s)', sep='')), 
+         y='Slow Dominance', colour='Higher\nVelocity') + ylim(0,1) +
     guides(colour=guide_legend(keyheight=.2, default.unit='inch')) +
     scale_colour_manual(values=cc[2:7])
 p <- themefy(p)
-if(!out){plot(p)}else{png('mc_ct-v_slowVmin.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
+pVmin <- p + ggtitle('a')
+# if(!out){plot(p)}else{png('mc_ct-v_slowVmin.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
 ```
 
+#### Faster velocity along x-axis
 ```{r, fig.height=3, fig.width=5}
 p <- ggplot(sumSlow, aes(x=factor(vMax), y=pResp, colour=factor(vMin), group=factor(vMin),
                         ymin=pResp-seResp, ymax=pResp+seResp)) +
     geom_point(position=dodge, size=1, alpha=alpha) +
     geom_line(position=dodge, alpha=alpha) +
     geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
-    labs(x=expression(paste('Higher Speed (', degree, '/s)', sep='')), 
-         y='Slow Dominance', colour='Lower Speed') + ylim(0,1) +
+    labs(x=expression(paste('Higher Velocity (', degree, '/s)', sep='')), 
+         y='Slow Dominance', colour='\nLower\nVelocity') + ylim(0,1) +
     guides(colour=guide_legend(keyheight=.2, default.unit='inch')) +
     scale_colour_manual(values=cc)
 p <- themefy(p)
-if(!out){plot(p)}else{png('mc_ct-v_slowVmax.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
+pVmax <- p + ggtitle('b') + theme(axis.title.y=element_blank())
+# if(!out){plot(p)}else{png('mc_ct-v_slowVmax.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
 ```
 
+#### Combined figure
+```{r, fig.height=2.1, fig.width=7}
+if(out){jpeg('mc_ct-v_slow.jpg', width=7, height=2.1, units='in', res=600)}
+grid.arrange(pVmin, pVmax, ncol=2, widths=c(2.6/5,2.4/5))
+if(out){dev.off()}
+```
+
+### BF analyses
 ```{r}
 summary(glmer(slow ~ vMin * vMax + (1|subj), data=ds, family='binomial'))
 bfVmin <- lmBF(slow ~ vMin + subj, data=ds, whichRandom = 'subj')
@@ -261,64 +260,63 @@ sumNoDir <- ddply(sumNoDirSubj, .(vMin, vMax), summarise,
                   seResp = sd(pSubjResp)/sqrt(length(subj)))
 ```
 
+### Plots
+
+#### 2D
 ```{r, fig.height=3, fig.width=5}
-p <- ggplot(sumNoDir, aes(x=factor(vMin), y=pResp, colour=factor(vMax), group=factor(vMax),
-                        ymin=pResp-seResp, ymax=pResp+seResp)) +
+p <- ggplot(sumNoDir, aes(x=factor(vMin), y=factor(vMax), color=pResp)) + 
+    geom_point(size=4) + scale_colour_gradient(limits=c(0,1), breaks=c(0,.5,1)) +
+    geom_point(data=sumSlow, shape=1, aes(x=factor(vMin), y=factor(vMax), size=1),
+               show.legend=F, color ='lightgrey') +
+    labs(x=expression(paste('Lower Velocity (', degree, '/s)', sep='')), 
+         y=expression(paste('Higher Velocity (', degree, '/s)', sep='')), 
+         color='No-Direction\nResponses\n(P trials)\n') + 
+    guides(color=guide_colorbar(barwidth=1, barheight=4))
+( p <- themefy(p) )
+#p2dNoDir <- p + ggtitle('a')
+# if(!out){plot(p)}else{png('mc_ct-v_noDir2d2.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
+```
+
+#### Slower velocity along x-axis
+```{r, fig.height=3, fig.width=5}
+p <- ggplot(sumNoDir, aes(x=factor(vMin), y=pResp, colour=factor(vMax), 
+                          group=factor(vMax), ymin=pResp-seResp, ymax=pResp+seResp)) +
     geom_point(position=dodge, size=1, alpha=alpha) +
     geom_line(position=dodge, alpha=alpha) +
     geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
-    labs(x=expression(paste('Lower Speed (', degree, '/s)', sep='')), 
-         y='No-Direction Responses', colour='Higher Speed') + ylim(0,1) +
+    labs(x=expression(paste('Lower Velocity (', degree, '/s)', sep='')), 
+         y='No-Direction Responses', colour='Higher\nVelocity') + ylim(0,1) +
     guides(colour=guide_legend(keyheight=.2, default.unit='inch')) +
     scale_colour_manual(values=cc[2:7])
 p <- themefy(p)
-if(!out){plot(p)}else{png('mc_ct-v_noDirVmin.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
+pVminNoDir <- p + ggtitle('a')
+# if(!out){plot(p)}else{png('mc_ct-v_noDirVmin.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
 ```
 
-```{r, fig.height=3, fig.width=5}
-sumSs <- sumNoDir
-sumSs$pResp[sumSs$vMax>3] <- NA
-p <- ggplot(sumSs, aes(x=factor(vMin), y=pResp, colour=factor(vMax), group=factor(vMax),
-                        ymin=pResp-seResp, ymax=pResp+seResp)) +
-    geom_point(position=dodge, size=1, alpha=alpha) +
-    geom_line(position=dodge, alpha=alpha) +
-    geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
-    labs(x=expression(paste('Lower Speed (', degree, '/s)', sep='')), 
-         y='No-Direction Responses', colour='Higher Speed') + ylim(0,1) +
-    guides(colour=guide_legend(keyheight=.2, default.unit='inch')) +
-    scale_colour_manual(values=cc[2:7])
-p <- themefy(p)
-if(!out){plot(p)}else{png('mc_ct-v_noDirVmin_slow.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
-```
-
-```{r, echo=FALSE}
-p <- ggplot(sumNoDir[sumNoDir$vMin==0,], aes(x=factor(vMax), y=pResp, group=factor(vMin), 
-                        ymin=pResp-seResp, ymax=pResp+seResp)) +
-    geom_point(position=dodge, size=1, alpha=1) +
-    geom_line(position=dodge, alpha=1) +
-    geom_linerange(position=dodge, show.legend=F, alpha=alpha) + 
-    scale_y_continuous(breaks=c(0,1), limits=c(0,1)) + 
-    theme_bw() + theme(panel.grid.minor.x=element_blank(), panel.grid.minor.y=element_blank(),
-        axis.text.x = element_blank(), axis.title=element_blank(), axis.text=element_text(size=6),
-        legend.text = element_blank(), legend.title=element_blank(),
-        legend.key = element_blank())
-if(out){png('mc_ct-v_noDirVmin_inset.png', width=.8, height=.6, units='in', res=600); plot(p); dev.off()}
-```
-
+#### Faster velocity along x-axis
 ```{r, fig.height=3, fig.width=5}
 p <- ggplot(sumNoDir, aes(x=factor(vMax), y=pResp, colour=factor(vMin), group=factor(vMin),
                         ymin=pResp-seResp, ymax=pResp+seResp)) +
     geom_point(position=dodge, size=1, alpha=alpha) +
     geom_line(position=dodge, alpha=alpha) +
     geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
-    labs(x=expression(paste('Higher Speed (', degree, '/s)', sep='')), 
-         y='No-Direction Responses', colour='Lower Speed') + ylim(0,1) +
+    labs(x=expression(paste('Higher Velocity (', degree, '/s)', sep='')), 
+         y='No-Direction Responses', colour='\nLower\nVelocity') + ylim(0,1) +
     guides(colour=guide_legend(keyheight=.2, default.unit='inch')) +
     scale_colour_manual(values=cc)
 p <- themefy(p)
-if(!out){plot(p)}else{png('mc_ct-v_noDirVmax.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
+pVmaxNoDir <- p + ggtitle('b') + theme(axis.title.y=element_blank())
+# if(!out){plot(p)}else{png('mc_ct-v_noDirVmax.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
 ```
 
+#### Combined figure
+```{r, fig.height=2.1, fig.width=7}
+if(out){jpeg('mc_ct-v_noDir.jpg', width=7, height=2.1, units='in', res=600)}
+grid.arrange(pVminNoDir, pVmaxNoDir, ncol=2, widths=c(2.6/5,2.4/5))
+if(out){dev.off()}
+```
+
+### BF analyses
 ```{r}
 summary(glmer(noDir ~ vMin * vMax + (1|subj), data=ds, family='binomial'))
 bfVmin <- lmBF(noDir ~ vMin + subj, data=ds, whichRandom = 'subj')
@@ -344,7 +342,7 @@ print(paste('interaction:', as.vector(bfInt / bfSum)))
 #     geom_point(position=dodge, size=1, alpha=alpha) +
 #     geom_line(position=dodge, alpha=alpha) +
 #     geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
-#     labs(x=expression(paste('Speed Difference (', degree, '/s)', sep='')), 
+#     labs(x=expression(paste('Velocity Difference (', degree, '/s)', sep='')), 
 #          y='No-Direction Responses (p)') + ylim(0,1) +
 #     guides(colour=guide_legend(keyheight=.2, default.unit='inch'))
 # p <- themefy(p)
@@ -352,7 +350,9 @@ print(paste('interaction:', as.vector(bfInt / bfSum)))
 ```
 --->
 
-## Slow-direction
+## Slow/Fast direction
+
+### Slow-direction
 ```{r}
 sumSlowDirSubj <- ddply(ds, .(subj, vMin, vMax), summarise, pSubjResp = mean(slowDir))
 sumSlowDir <- ddply(sumSlowDirSubj, .(vMin, vMax), summarise,
@@ -361,48 +361,51 @@ sumSlowDir <- ddply(sumSlowDirSubj, .(vMin, vMax), summarise,
 ```
 
 ```{r, fig.height=3, fig.width=5}
-p <- ggplot(sumSlowDir, aes(x=factor(vMin), y=pResp, colour=factor(vMax), group=factor(vMax),
-                        ymin=pResp-seResp, ymax=pResp+seResp)) +
+p <- ggplot(sumSlowDir, aes(x=factor(vMin), y=pResp, colour=factor(vMax), 
+                            group=factor(vMax), ymin=pResp-seResp, ymax=pResp+seResp)) +
     geom_point(position=dodge, size=1, alpha=alpha) +
     geom_line(position=dodge, alpha=alpha) +
     geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
-    labs(x=expression(paste('Lower Speed (', degree, '/s)', sep='')), 
-         y='Slow-Direction Responses', colour='Higher Speed') + ylim(0,1) +
+    labs(x=expression(paste('Lower Velocity (', degree, '/s)', sep='')), 
+         y='Slow-Direction Responses', colour='Higher\nVelocity') + ylim(0,1) +
     guides(colour=guide_legend(keyheight=.2, default.unit='inch')) +
     scale_colour_manual(values=cc[2:7])
 p <- themefy(p)
 pSlowDir <- p + ggtitle('a') + theme(legend.position='none')
-if(!out){plot(p)}else{png('mc_ct-v_slowDirVmin.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
+# if(!out){plot(p)}else{png('mc_ct-v_slowDirVmin.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
 ```
 
+<!--
 ### Inset
 ```{r, echo=FALSE}
-p <- ggplot(sumSlowDir[sumSlowDir$vMin==0,], aes(x=factor(vMax), y=pResp, group=factor(vMin), 
-                        ymin=pResp-seResp, ymax=pResp+seResp)) +
+p <- ggplot(sumSlowDir[sumSlowDir$vMin==0,], aes(x=factor(vMax), y=pResp, 
+                         group=factor(vMin), ymin=pResp-seResp, ymax=pResp+seResp)) +
     geom_point(position=dodge, size=1, alpha=1) +
     geom_line(position=dodge, alpha=1) +
     geom_linerange(position=dodge, show.legend=F, alpha=alpha) + 
     scale_y_continuous(breaks=c(0,1), limits=c(0,1)) + 
-    theme_bw() + theme(panel.grid.minor.x=element_blank(), panel.grid.minor.y=element_blank(),
-        axis.text.x = element_blank(), axis.title=element_blank(), axis.text=element_text(size=6),
+    theme_bw() + theme(panel.grid.minor.x=element_blank(), 
+        panel.grid.minor.y=element_blank(), axis.text.x = element_blank(), 
+        axis.title=element_blank(), axis.text=element_text(size=6),
         legend.text = element_blank(), legend.title=element_blank(),
         legend.key = element_blank())
 if(out){png('mc_ct-v_slowDir_inset.png', width=.8, height=.6, units='in', res=600); plot(p); dev.off()}
 ```
 
 ```{r, fig.height=3, fig.width=5}
-p <- ggplot(sumSlowDir, aes(x=factor(vMax), y=pResp, colour=factor(vMin), group=factor(vMin),
-                        ymin=pResp-seResp, ymax=pResp+seResp)) +
+p <- ggplot(sumSlowDir, aes(x=factor(vMax), y=pResp, colour=factor(vMin), 
+                            group=factor(vMin), ymin=pResp-seResp, ymax=pResp+seResp)) +
     geom_point(position=dodge, size=1, alpha=alpha) +
     geom_line(position=dodge, alpha=alpha) +
     geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
-    labs(x=expression(paste('Higher Speed (', degree, '/s)', sep='')), 
-         y='Slow-Direction Responses', colour='Lower Speed') + ylim(0,1) +
+    labs(x=expression(paste('Higher Velocity (', degree, '/s)', sep='')), 
+         y='Slow-Direction Responses', colour='Lower\nVelocity') + ylim(0,1) +
     guides(colour=guide_legend(keyheight=.2, default.unit='inch')) +
     scale_colour_manual(values=cc)
 p <- themefy(p)
-if(!out){plot(p)}else{png('mc_ct-v_slowDirVmax.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
+# if(!out){plot(p)}else{png('mc_ct-v_slowDirVmax.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
 ```
+--->
 
 ```{r}
 summary(glmer(slowDir ~ vMin * vMax + (1|subj), data=ds, family='binomial'))
@@ -410,12 +413,12 @@ bfVmin <- lmBF(slowDir ~ vMin + subj, data=ds, whichRandom = 'subj')
 bfVmax <- lmBF(slowDir ~ vMax + subj, data=ds, whichRandom = 'subj')
 bfSum <- lmBF(slowDir ~ vMin + vMax + subj, data=ds, whichRandom = 'subj')
 bfInt <- lmBF(slowDir ~ vMin * vMax + subj, data=ds, whichRandom = 'subj')
-as.vector(bfSum / bfVmin) # vMax:
-as.vector(bfSum / bfVmax) # vMin:
-as.vector(bfInt / bfSum) # interaction:
+print(paste('vMax:', as.vector(bfSum / bfVmin)))
+print(paste('vMin:', as.vector(bfSum / bfVmax)))
+print(paste('interaction:', as.vector(bfInt / bfSum)))
 ```
 
-## Fast-direction
+### Fast-direction
 ```{r}
 sumFastDirSubj <- ddply(ds, .(subj, vMin, vMax), summarise, pSubjResp = mean(fastDir))
 sumFastDir <- ddply(sumFastDirSubj, .(vMin, vMax), summarise,
@@ -424,19 +427,21 @@ sumFastDir <- ddply(sumFastDirSubj, .(vMin, vMax), summarise,
 ```
 
 ```{r, fig.height=3, fig.width=5}
-p <- ggplot(sumFastDir, aes(x=factor(vMin), y=pResp, colour=factor(vMax), group=factor(vMax),
-                        ymin=pResp-seResp, ymax=pResp+seResp)) +
+p <- ggplot(sumFastDir, aes(x=factor(vMin), y=pResp, colour=factor(vMax), 
+                            group=factor(vMax), ymin=pResp-seResp, ymax=pResp+seResp)) +
     geom_point(position=dodge, size=1, alpha=alpha) +
     geom_line(position=dodge, alpha=alpha) +
     geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
-    labs(x=expression(paste('Lower Speed (', degree, '/s)', sep='')), 
-         y='Fast-Direction Responses', colour='Higher Speed') + ylim(0,1) +
+    labs(x=expression(paste('Lower Velocity (', degree, '/s)', sep='')), 
+         y='Fast-Direction Responses', colour='Higher\nVelocity') + ylim(0,1) +
     guides(colour=guide_legend(keyheight=.2, default.unit='inch')) +
     scale_colour_manual(values=cc[2:7])
 p <- themefy(p)
-if(!out){plot(p)}else{png('mc_ct-v_fastDirVmin.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
+pFastDir <- p + ggtitle('b')
+# if(!out){plot(p)}else{png('mc_ct-v_fastDirVmin.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
 ```
 
+<!--
 ```{r, echo=FALSE}
 p <- ggplot(sumFastDir[sumFastDir$vMin==0,], aes(x=factor(vMax), y=pResp, group=factor(vMin), 
                         ymin=pResp-seResp, ymax=pResp+seResp)) +
@@ -457,13 +462,14 @@ p <- ggplot(sumFastDir, aes(x=factor(vMax), y=pResp, colour=factor(vMin), group=
     geom_point(position=dodge, size=1, alpha=alpha) +
     geom_line(position=dodge, alpha=alpha) +
     geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
-    labs(x=expression(paste('Higher Speed (', degree, '/s)', sep='')), 
-         y='Fast-Direction Responses', colour='Lower Speed') + ylim(0,1) +
+    labs(x=expression(paste('Higher Velocity (', degree, '/s)', sep='')), 
+         y='Fast-Direction Responses', colour='Lower Velocity') + ylim(0,1) +
     guides(colour=guide_legend(keyheight=.2, default.unit='inch')) +
     scale_colour_manual(values=cc)
 p <- themefy(p)
 if(!out){plot(p)}else{png('mc_ct-v_fastDirVmax.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
 ```
+--->
 
 ```{r}
 summary(glmer(fastDir ~ vMin * vMax + (1|subj), data=ds, family='binomial'))
@@ -471,49 +477,84 @@ bfVmin <- lmBF(fastDir ~ vMin + subj, data=ds, whichRandom = 'subj')
 bfVmax <- lmBF(fastDir ~ vMax + subj, data=ds, whichRandom = 'subj')
 bfSum <- lmBF(fastDir ~ vMin + vMax + subj, data=ds, whichRandom = 'subj')
 bfInt <- lmBF(fastDir ~ vMin * vMax + subj, data=ds, whichRandom = 'subj')
-as.vector(bfSum / bfVmin) # vMax:
-as.vector(bfSum / bfVmax) # vMin:
-as.vector(bfInt / bfSum) # interaction:
+print(paste('vMax:', as.vector(bfSum / bfVmin)))
+print(paste('vMin:', as.vector(bfSum / bfVmax)))
+print(paste('interaction:', as.vector(bfInt / bfSum)))
 ```
 
-## Slow/Fast
+### Combined figure
+```{r, fig.height=2.1, fig.width=7}
+if(out){jpeg('mc_ct-v_slowFast.jpg', width=7, height=2.1, units='in', res=600)}
+grid.arrange(pSlowDir, pFastDir, ncol=2, widths=c(2.35/5,2.65/5))
+if(out){dev.off()}
+```
+
+## Directional
 ```{r}
 sumDirSubj <- ddply(ds[ds$slowDir+ds$fastDir==1,], 
                         .(subj, vMin, vMax), summarise, pSubjResp = mean(slowDir))
 sumDir <- ddply(sumDirSubj, .(vMin, vMax), summarise,
                   pResp = mean(pSubjResp), 
                   seResp = sd(pSubjResp)/sqrt(length(subj)))
-sumDir$seResp[which(is.na(sumDir$seResp))] <- 0
 ```
 
+### Plots
+
+#### 2D
+```{r, fig.height=3, fig.width=5}
+p <- ggplot(sumDir, aes(x=factor(vMin), y=factor(vMax), color=pResp)) + 
+    geom_point(size=4) + scale_colour_gradient(limits=c(0,1), breaks=c(0,.5,1)) +
+    geom_point(data=sumSlow, shape=1, aes(x=factor(vMin), y=factor(vMax), size=1),
+               show.legend=F, color ='lightgrey') +
+    labs(x=expression(paste('Lower Velocity (', degree, '/s)', sep='')), 
+         y=expression(paste('Higher Velocity (', degree, '/s)', sep='')), 
+         color='Directional\nResponses\n(P trials)\n') + 
+    guides(color=guide_colorbar(barwidth=1, barheight=4))
+( p <- themefy(p) )
+#p2dNoDir <- p + ggtitle('a')
+# if(!out){plot(p)}else{png('mc_ct-v_dir2d2.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
+```
+
+#### Slower velocity along x-axis
 ```{r, fig.height=3, fig.width=5}
 p <- ggplot(sumDir, aes(x=factor(vMin), y=pResp, colour=factor(vMax), group=factor(vMax),
                         ymin=pResp-seResp, ymax=pResp+seResp)) +
     geom_point(position=dodge, size=1, alpha=alpha) +
     geom_line(position=dodge, alpha=alpha) +
     geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
-    labs(x=expression(paste('Lower Speed (', degree, '/s)', sep='')), 
-         y='Slow-Direction Responses', colour='Higher Speed') + #ylim(0,1) +
+    labs(x=expression(paste('Lower Velocity (', degree, '/s)', sep='')), 
+         y='Directional Responses', colour='Higher\nVelocity') + #ylim(0,1) +
     guides(colour=guide_legend(keyheight=.2, default.unit='inch')) +
     scale_colour_manual(values=cc[2:7])
 p <- themefy(p)
-if(!out){plot(p)}else{png('mc_ct-v_dirVmin.png', width=3.5, height=2.1, units='in', res=600); plot(p); dev.off()}
+pDirMin <- p + ggtitle('a')
+# if(!out){plot(p)}else{png('mc_ct-v_dirVmin.png', width=3.5, height=2.1, units='in', res=600); plot(p); dev.off()}
 ```
 
+#### Higher velocity along x-axis
 ```{r, fig.height=3, fig.width=5}
 p <- ggplot(sumDir, aes(x=factor(vMax), y=pResp, colour=factor(vMin), group=factor(vMin),
                         ymin=pResp-seResp, ymax=pResp+seResp)) +
     geom_point(position=dodge, size=1, alpha=alpha) +
     geom_line(position=dodge, alpha=alpha) +
     geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
-    labs(x=expression(paste('Higher Speed (', degree, '/s)', sep='')), 
-         y='Fast-Direction Responses', colour='Lower Speed') + ylim(0,1) +
+    labs(x=expression(paste('Higher Velocity (', degree, '/s)', sep='')), 
+         y='Directional Responses', colour='\nLower\nVelocity') + ylim(0,1) +
     guides(colour=guide_legend(keyheight=.2, default.unit='inch')) +
     scale_colour_manual(values=cc)
 p <- themefy(p)
-if(!out){plot(p)}else{png('mc_ct-v_dirVmax.png', width=3.5, height=2.1, units='in', res=600); plot(p); dev.off()}
+pDirMax <- p + ggtitle('b')
+# if(!out){plot(p)}else{png('mc_ct-v_dirVmax.png', width=3.5, height=2.1, units='in', res=600); plot(p); dev.off()}
 ```
 
+#### Combined figure
+```{r, fig.height=2.1, fig.width=7}
+if(out){jpeg('mc_ct-v_dir.jpg', width=7, height=2.1, units='in', res=600)}
+grid.arrange(pDirMin, pDirMax, ncol=2, widths=c(2.5/5,2.5/5))
+if(out){dev.off()}
+```
+
+### BF analyses
 ```{r}
 ds$anyDir <- ds$slowDir + ds$fastDir
 summary(glmer(anyDir ~ vMin * vMax + (1|subj), data=ds, family='binomial'))
@@ -521,11 +562,12 @@ bfVmin <- lmBF(anyDir ~ vMin + subj, data=ds, whichRandom = 'subj')
 bfVmax <- lmBF(anyDir ~ vMax + subj, data=ds, whichRandom = 'subj')
 bfSum <- lmBF(anyDir ~ vMin + vMax + subj, data=ds, whichRandom = 'subj')
 bfInt <- lmBF(anyDir ~ vMin * vMax + subj, data=ds, whichRandom = 'subj')
-as.vector(bfSum / bfVmin) # vMax:
-as.vector(bfSum / bfVmax) # vMin:
-as.vector(bfInt / bfSum) # interaction:
+print(paste('vMax:', as.vector(bfSum / bfVmin)))
+print(paste('vMin:', as.vector(bfSum / bfVmax)))
+print(paste('interaction:', as.vector(bfInt / bfSum)))
 ```
 
+### T-test
 ```{r}
 sumDirDiff <- merge(sumSlowDir, sumFastDir, by=c('vMin','vMax'))
 t.test(sumDirDiff$pResp.x,sumDirDiff$pResp.y,paired=T)
@@ -545,14 +587,15 @@ p <- ggplot(sumTransp, aes(x=factor(vMin), y=pResp, colour=factor(vMax), group=f
     geom_point(position=dodge, size=1, alpha=alpha) +
     geom_line(position=dodge, alpha=alpha) +
     geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
-    labs(x=expression(paste('Lower Speed (', degree, '/s)', sep='')), 
-         y='Transparency Responses', colour='Higher Speed') + ylim(0,1) +
+    labs(x=expression(paste('Lower Velocity (', degree, '/s)', sep='')), 
+         y='Transparency Responses', colour='Higher\nVelocity') + ylim(0,1) +
     guides(colour=guide_legend(keyheight=.2, default.unit='inch')) +
     scale_colour_manual(values=cc[2:7])
 p <- themefy(p)
 if(!out){plot(p)}else{png('mc_ct-v_transpVmin.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
 ```
 
+<!--
 ```{r, echo=FALSE}
 p <- ggplot(sumTransp[sumTransp$vMin==0,], aes(x=factor(vMax), y=pResp, group=factor(vMin), 
                         ymin=pResp-seResp, ymax=pResp+seResp)) +
@@ -566,6 +609,7 @@ p <- ggplot(sumTransp[sumTransp$vMin==0,], aes(x=factor(vMax), y=pResp, group=fa
         legend.key = element_blank())
 if(out){png('mc_ct-v_transp_inset.png', width=.8, height=.6, units='in', res=600); plot(p); dev.off()}
 ```
+--->
 
 ```{r, fig.height=3, fig.width=5}
 p <- ggplot(sumTransp, aes(x=factor(vMax), y=pResp, colour=factor(vMin), group=factor(vMin),
@@ -573,8 +617,8 @@ p <- ggplot(sumTransp, aes(x=factor(vMax), y=pResp, colour=factor(vMin), group=f
     geom_point(position=dodge, size=1, alpha=alpha) +
     geom_line(position=dodge, alpha=alpha) +
     geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
-    labs(x=expression(paste('Higher Speed (', degree, '/s)', sep='')), 
-         y='Transparency Responses', colour='Lower Speed') + ylim(0,1) +
+    labs(x=expression(paste('Higher Velocity (', degree, '/s)', sep='')), 
+         y='Transparency Responses', colour='Lower\nVelocity') + ylim(0,1) +
     guides(colour=guide_legend(keyheight=.2, default.unit='inch')) +
     scale_colour_manual(values=cc)
 p <- themefy(p)
@@ -587,15 +631,16 @@ bfVmin <- lmBF(transp ~ vMin + subj, data=ds, whichRandom = 'subj')
 bfVmax <- lmBF(transp ~ vMax + subj, data=ds, whichRandom = 'subj')
 bfSum <- lmBF(transp ~ vMin + vMax + subj, data=ds, whichRandom = 'subj')
 bfInt <- lmBF(transp ~ vMin * vMax + subj, data=ds, whichRandom = 'subj')
-as.vector(bfSum / bfVmin) # vMax:
-as.vector(bfSum / bfVmax) # vMin:
-as.vector(bfInt / bfSum) # interaction:
+print(paste('vMax:', as.vector(bfSum / bfVmin)))
+print(paste('vMin:', as.vector(bfSum / bfVmax)))
+print(paste('interaction:', as.vector(bfInt / bfSum)))
 ```
 
 # Center-surround
 
+## Center-surround / whole-field frequencies
 ```{r}
-ds$scfs <- 0
+ds$scfs <- 0 # slow center / fast surround
 ds$scfs[ds$ring==1 & (ds$resp=='no direction' | ds$resp=='slow\ndirection')] <- 1
 ds$fcss <- 0
 ds$fcss[ds$ring==1 & ds$resp=='fast\ndirection'] <- 1
@@ -604,19 +649,13 @@ ds$sw[ds$ring==0 & (ds$resp=='no direction' | ds$resp=='slow\ndirection')] <- 1
 ds$fw <- 0
 ds$fw[ds$ring==0 & ds$resp=='fast\ndirection'] <- 1
 sumCsSubj <- ddply(ds, .(subj, vMin, vMax), summarise,
-                       pSubjScfs = mean(scfs),
-                       pSubjFcss = mean(fcss),
-                       pSubjSw = mean(sw),
-                       pSubjFw = mean(fw))
+                       pSubjScfs = mean(scfs), pSubjFcss = mean(fcss),
+                       pSubjSw = mean(sw), pSubjFw = mean(fw))
 sumCs <- ddply(sumCsSubj, .(vMin, vMax), summarise,
-                  pScfs = mean(pSubjScfs), 
-                  seScfs = sd(pSubjScfs)/sqrt(length(subj)),
-                  pFcss = mean(pSubjFcss),
-                  seFcss = sd(pSubjFcss/sqrt(length(subj))),
-                  pSw = mean(pSubjSw), 
-                  seSw = sd(pSubjSw)/sqrt(length(subj)),
-                  pFw = mean(pSubjFw),
-                  seFw = sd(pSubjFw/sqrt(length(subj))))
+                  pScfs = mean(pSubjScfs), seScfs = sd(pSubjScfs)/sqrt(length(subj)),
+                  pFcss = mean(pSubjFcss), seFcss = sd(pSubjFcss/sqrt(length(subj))),
+                  pSw = mean(pSubjSw), seSw = sd(pSubjSw)/sqrt(length(subj)),
+                  pFw = mean(pSubjFw), seFw = sd(pSubjFw/sqrt(length(subj))))
 # sumRing$pResp[which(is.na(sumRing$seResp))] <- NA
 #sumRing <- sumRing[!is.na(sumRing$seResp),]
 head(sumCs)
@@ -624,103 +663,171 @@ head(sumCs)
 
 ## Slow-center/fast-surround
 
+### Slower along x
 ```{r, fig.height=3, fig.width=5}
 p <- ggplot(sumCs, aes(x=factor(vMin), y=pScfs, colour=factor(vMax), group=factor(vMax),
                         ymin=pScfs-seScfs, ymax=pScfs+seScfs)) +
     geom_point(position=dodge, size=1, alpha=alpha) +
     geom_line(position=dodge, alpha=alpha) +
     geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
-    labs(x=expression(paste('Lower Speed (', degree, '/s)', sep='')), 
-         y='Slow-Center/Fast-Surround', colour='Higher Speed') + ylim(0,1) +
+    labs(x=expression(paste('Lower Velocity (', degree, '/s)', sep='')), 
+         y='Slow-Center/Fast-Surround', colour='Higher Velocity') + ylim(0,1) +
     guides(colour=guide_legend(keyheight=.2, default.unit='inch')) +
     scale_colour_manual(values=cc[2:7])
 p <- themefy(p)
-if(!out){plot(p)}else{png('mc_ct-v_scfsVmin.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
+# if(!out){plot(p)}else{png('mc_ct-v_scfsVmin.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
 ```
 
+### Faster along x
 ```{r, fig.height=3, fig.width=5}
 p <- ggplot(sumCs, aes(x=factor(vMax), y=pScfs, colour=factor(vMin), group=factor(vMin),
                         ymin=pScfs-seScfs, ymax=pScfs+seScfs)) +
     geom_point(position=dodge, size=1, alpha=alpha) +
     geom_line(position=dodge, alpha=alpha) +
     geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
-    labs(x=expression(paste('Higher Speed (', degree, '/s)', sep='')), 
-         y='Slow-Center/Fast-Surround', colour='Lower Speed') + ylim(0,1) +
+    labs(x=expression(paste('Higher Velocity (', degree, '/s)', sep='')), 
+         y='Slow-Center/Fast-Surround', colour='Lower Velocity') + ylim(0,1) +
     guides(colour=guide_legend(keyheight=.2, default.unit='inch')) +
     scale_colour_manual(values=cc)
 p <- themefy(p)
-if(!out){plot(p)}else{png('mc_ct-v_scfsVmax.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
+pSCFS <- p + ggtitle('a')
+# if(!out){plot(p)}else{png('mc_ct-v_scfsVmax.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
 ```
 
 ## Fast-center/slow-surround
 
+### Slower along x
 ```{r, fig.height=3, fig.width=5}
 p <- ggplot(sumCs, aes(x=factor(vMin), y=pFcss, colour=factor(vMax), group=factor(vMax),
                         ymin=pFcss-seFcss, ymax=pFcss+seFcss)) +
     geom_point(position=dodge, size=1, alpha=alpha) +
     geom_line(position=dodge, alpha=alpha) +
     geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
-    labs(x=expression(paste('Lower Speed (', degree, '/s)', sep='')), 
-         y='Fast-Center/Slow-Surround', colour='Higher Speed') + ylim(0,1) +
+    labs(x=expression(paste('Lower Velocity (', degree, '/s)', sep='')), 
+         y='Fast-Center/Slow-Surround', colour='Higher Velocity') + ylim(0,1) +
     guides(colour=guide_legend(keyheight=.2, default.unit='inch')) +
     scale_colour_manual(values=cc[2:7])
 p <- themefy(p)
-if(!out){plot(p)}else{png('mc_ct-v_fcssVmin.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
+# if(!out){plot(p)}else{png('mc_ct-v_fcssVmin.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
 ```
 
+### Faster along x
 ```{r, fig.height=3, fig.width=5}
 p <- ggplot(sumCs, aes(x=factor(vMax), y=pFcss, colour=factor(vMin), group=factor(vMin),
                         ymin=pFcss-seFcss, ymax=pFcss+seFcss)) +
     geom_point(position=dodge, size=1, alpha=alpha) +
     geom_line(position=dodge, alpha=alpha) +
     geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
-    labs(x=expression(paste('Higher Speed (', degree, '/s)', sep='')), 
-         y='Fast-Center/Slow-Surround', colour='Lower Speed') + ylim(0,1) +
+    labs(x=expression(paste('Higher Velocity (', degree, '/s)', sep='')), 
+         y='Fast-Center/Slow-Surround', colour='Lower Velocity') + ylim(0,1) +
     guides(colour=guide_legend(keyheight=.2, default.unit='inch')) +
     scale_colour_manual(values=cc)
 p <- themefy(p)
-if(!out){plot(p)}else{png('mc_ct-v_fcssVmax.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
+# if(!out){plot(p)}else{png('mc_ct-v_fcssVmax.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
 ```
 
 # Slow-center/fast-surround among slow
 ```{r}
-sumRingSubj <- ddply(ds[ds$resp=='no direction',], .(subj, vMin, vMax), summarise,
-                       pSubjResp = mean(ring))
+sumRingSubj <- ddply(ds[ds$slow==1,], .(subj, vMin, vMax), summarise,
+                       nSubjResp = sum(ring), pSubjResp = mean(ring))
 sumRing <- ddply(sumRingSubj, .(vMin, vMax), summarise,
-                  pResp = mean(pSubjResp), 
+                  pResp = mean(pSubjResp), nResp = mean(nSubjResp), 
                   seResp = sd(pSubjResp)/sqrt(length(subj)))
-# sumRing$pResp[which(is.na(sumRing$seResp))] <- NA
+sumRing$pResp[which(is.na(sumRing$seResp))] <- NA
 sumRing <- sumRing[!is.na(sumRing$seResp),]
 ```
 
+## Plots
+
+### 2D
+
+#### Number
+```{r, fig.height=3, fig.width=5}
+p <- ggplot(sumRing, aes(x=factor(vMin), y=factor(vMax), color=nResp)) + 
+    geom_point(size=4) + 
+    scale_colour_gradient(limits=c(0,9), breaks=c(0,3,6,9)) + #, breaks=c(0,.5,1)) +
+    geom_point(data=sumRing, shape=1, aes(x=factor(vMin), y=factor(vMax), size=9),
+               show.legend=F, color ='lightgrey') +
+    labs(x=expression(paste('Lower Speed (', degree, '/s)', sep='')), 
+         y=expression(paste('Higher Speed (', degree, '/s)', sep='')), 
+         color='Center-\nSurround\n(N trials)\n') + 
+    guides(color=guide_colorbar(barwidth=1, barheight=4)) + ggtitle('b')
+p <- themefy(p)
+# if(!out){plot(p)}else{png('mc_ct-v_ringV2d2n.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
+```
+
+#### Proportion
+```{r, fig.height=3, fig.width=5}
+p <- ggplot(sumRing, aes(x=factor(vMin), y=factor(vMax), color=pResp)) + 
+    geom_point(size=4) + scale_colour_gradient(limits=c(0,1), breaks=c(0,.5,1)) +
+    geom_point(data=sumRing, shape=1, aes(x=factor(vMin), y=factor(vMax), size=1),
+               show.legend=F, color ='lightgrey') +
+    labs(x=expression(paste('Lower Velocity (', degree, '/s)', sep='')), 
+         y=expression(paste('Higher Velocity (', degree, '/s)', sep='')), 
+         color='Center/\nSurround\n(P Trials)\n') +
+    guides(color=guide_colorbar(barwidth=1, barheight=4))
+p <- themefy(p)
+pCS <- p + ggtitle('b')
+# if(!out){plot(p)}else{png('mc_ct-v_ringV2d2p.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
+```
+
+#### vMin (inset)
+```{r, fig.height=3, fig.width=5}
+pCSIn <- ggplot(sumRing[sumRing$vMin==0,], aes(x=factor(vMax), y=pResp, 
+                                                 group=factor(vMin), 
+                        ymin=pResp-seResp, ymax=pResp+seResp)) +
+    geom_point(position=dodge, size=.5, alpha=alpha) +
+    geom_line(position=dodge, alpha=alpha) +
+    geom_linerange(position=dodge, show.legend=F, alpha=alpha) + 
+    scale_y_continuous(breaks=c(0,.5,1), labels=c('0','','1'), limits=c(0,1)) + 
+    theme_bw() + theme(panel.grid.minor.x=element_blank(), 
+                       panel.grid.minor.y=element_blank(),
+        axis.text.x = element_blank(), axis.title=element_blank(),
+        legend.text = element_blank(), legend.title=element_blank(),
+        legend.key = element_blank(), plot.background=element_rect(fill='grey'),
+        axis.text.y = element_text(size=6))
+```
+
+### Slower velocity along x-axis
 ```{r, fig.height=3, fig.width=5}
 p <- ggplot(sumRing, aes(x=factor(vMin), y=pResp, colour=factor(vMax), group=factor(vMax),
                         ymin=pResp-seResp, ymax=pResp+seResp)) +
     geom_point(position=dodge, size=1, alpha=alpha) +
     geom_line(position=dodge, alpha=alpha) +
     geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
-    labs(x=expression(paste('Lower Speed (', degree, '/s)', sep='')), 
-         y='Slow-Center/Fast-Surround', colour='Higher Speed') + ylim(0,1) +
+    labs(x=expression(paste('Lower Velocity (', degree, '/s)', sep='')), 
+         y='Slow-Center/Fast-Surround', colour='Higher\nVelocity') + ylim(0,1) +
     guides(colour=guide_legend(keyheight=.2, default.unit='inch')) +
     scale_colour_manual(values=cc[2:7])
 p <- themefy(p)
-if(!out){plot(p)}else{png('mc_ct-v_ringVmin.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
+pCSmin <- p + ggtitle('a')
+# if(!out){plot(p)}else{png('mc_ct-v_ringVmin.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
 ```
 
+### Faster velocity along x-axis
 ```{r, fig.height=3, fig.width=5}
 p <- ggplot(sumRing, aes(x=factor(vMax), y=pResp, colour=factor(vMin), group=factor(vMin),
                         ymin=pResp-seResp, ymax=pResp+seResp)) +
     geom_point(position=dodge, size=1, alpha=alpha) +
     geom_line(position=dodge, alpha=alpha) +
     geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
-    labs(x=expression(paste('Higher Speed (', degree, '/s)', sep='')), 
-         y='Slow-Center/Fast-Surround', colour='Lower Speed') + ylim(0,1) +
+    labs(x=expression(paste('Higher Velocity (', degree, '/s)', sep='')), 
+         y='Slow-Center/Fast-Surround', colour='Lower\nVelocity') + ylim(0,1) +
     guides(colour=guide_legend(keyheight=.2, default.unit='inch')) +
     scale_colour_manual(values=cc)
 p <- themefy(p)
-if(!out){plot(p)}else{png('mc_ct-v_ringVmax.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
+pCSmax <- p + ggtitle('b')
+# if(!out){plot(p)}else{png('mc_ct-v_ringVmax.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
 ```
 
+### Combined figure
+```{r, fig.height=2.1, fig.width=7}
+# if(out){jpeg('mc_ct-v_cs.jpg', width=7, height=2.1, units='in', res=600)}
+grid.arrange(pCSmin, pCSmax, ncol=2, widths=c(2.5/5,2.5/5))
+# if(out){dev.off()}
+```
+
+## BF analysis
 ```{r}
 ss <- ds[ds$resp=='no direction',]
 ss <- ss[!is.na(ss$ring),]
@@ -729,9 +836,9 @@ bfVmin <- lmBF(ring ~ vMin + subj, data=ss, whichRandom = 'subj')
 bfVmax <- lmBF(ring ~ vMax + subj, data=ss, whichRandom = 'subj')
 bfSum <- lmBF(ring ~ vMin + vMax + subj, data=ss, whichRandom = 'subj')
 bfInt <- lmBF(ring ~ vMin * vMax + subj, data=ss, whichRandom = 'subj')
-as.vector(bfSum / bfVmin) # vMax:
-as.vector(bfSum / bfVmax) # vMin:
-as.vector(bfInt / bfSum) # interaction:
+print(paste('vMax:', as.vector(bfSum / bfVmin)))
+print(paste('vMin:', as.vector(bfSum / bfVmax)))
+print(paste('interaction:', as.vector(bfInt / bfSum)))
 ```
 
 ## Center size: Proportion of ring size
@@ -747,23 +854,24 @@ sumRingSzP <- sumRingSzP[!is.na(sumRingSzP$ringSzPSe),]
 ```
 
 ```{r, fig.height=3, fig.width=5}
-p <- ggplot(sumRingSzP[sumRingSzP$vMax>8,], aes(x=factor(vMin), y=ringSzP, colour=factor(vMax), group=factor(vMax),
+p <- ggplot(sumRingSzP[sumRingSzP$vMax>=8,], aes(x=factor(vMin), y=ringSzP, colour=factor(vMax), group=factor(vMax),
                         ymin=ringSzP-ringSzPSe, ymax=ringSzP+ringSzPSe)) +
     geom_point(position=dodge, size=1, alpha=alpha) +
     geom_line(position=dodge, alpha=alpha) +
     geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
-    labs(x=expression(paste('Lower Speed (', degree, '/s)', sep='')), 
-         y='Center Size', colour='Higher Speed') + ylim(0,1) +
+    labs(x=expression(paste('Lower Velocity (', degree, '/s)', sep='')), 
+         y='Center Size', colour='Higher\nVelocity') + ylim(0,1) +
     guides(colour=guide_legend(keyheight=.2, default.unit='inch')) +
     scale_colour_manual(values=cc[c(5,7)])
 p <- themefy(p)
-if(!out){plot(p)}else{png('mc_ct-v_ringSzPVmin.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
+pRingSzMin <- p + ggtitle('b')
+# if(!out){plot(p)}else{png('mc_ct-v_ringSzPVmin.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
 ```
 
+<!--
 ```{r, echo=FALSE}
-p <- ggplot(sumRingSzP[sumRingSzP$vMax>16,], aes(x=factor(vMin), y=ringSzP, group=factor(vMax), 
-                        ymin=ringSzP-ringSzPSe, ymax=ringSzP+ringSzPSe)) +
-    #geom_point(position=dodge, size=.5, alpha=.5) +
+p <- ggplot(sumRingSzP[sumRingSzP$vMax>16,], aes(x=factor(vMin), y=ringSzP, 
+                 group=factor(vMax), ymin=ringSzP-ringSzPSe, ymax=ringSzP+ringSzPSe)) +
     geom_line(position=dodge, alpha=1) +
     geom_linerange(position=dodge, show.legend=F, alpha=alpha) + 
     scale_y_continuous(breaks=c(0,1), limits=c(0,1)) + 
@@ -774,6 +882,7 @@ p <- ggplot(sumRingSzP[sumRingSzP$vMax>16,], aes(x=factor(vMin), y=ringSzP, grou
         legend.key = element_blank())
 if(out){png('mc_ct-v_ringSzP_inset.png', width=.8, height=.6, units='in', res=600); plot(p); dev.off()}
 ```
+--->
 
 ```{r, fig.height=3, fig.width=5}
 p <- ggplot(sumRingSzP, aes(x=factor(vMax), y=ringSzP, colour=factor(vMin), group=factor(vMin),
@@ -781,12 +890,12 @@ p <- ggplot(sumRingSzP, aes(x=factor(vMax), y=ringSzP, colour=factor(vMin), grou
     geom_point(position=dodge, size=1, alpha=alpha) +
     geom_line(position=dodge, alpha=alpha) +
     geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
-    labs(x=expression(paste('Higher Speed (', degree, '/s)', sep='')), 
-         y='Center Size', colour='Lower Speed') + ylim(0,1) +
+    labs(x=expression(paste('Higher Velocity (', degree, '/s)', sep='')), 
+         y='Center Size', colour='Lower Velocity') + ylim(0,1) +
     guides(colour=guide_legend(keyheight=.2, default.unit='inch')) +
     scale_colour_manual(values=cc)
 p <- themefy(p)
-if(!out){plot(p)}else{png('mc_ct-v_ringSzPVmax.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
+# if(!out){plot(p)}else{png('mc_ct-v_ringSzPVmax.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
 ```
 
 ```{r}
@@ -797,21 +906,27 @@ bfVmin <- lmBF(ringSzP ~ vMin + subj, data=ss, whichRandom = 'subj')
 bfVmax <- lmBF(ringSzP ~ vMax + subj, data=ss, whichRandom = 'subj')
 bfSum <- lmBF(ringSzP ~ vMin + vMax + subj, data=ss, whichRandom = 'subj')
 bfInt <- lmBF(ringSzP ~ vMin * vMax + subj, data=ss, whichRandom = 'subj')
-as.vector(bfSum / bfVmin) # vMax:
-as.vector(bfSum / bfVmax) # vMin:
-as.vector(bfInt / bfSum) # interaction:
+print(paste('vMax:', as.vector(bfSum / bfVmin)))
+print(paste('vMin:', as.vector(bfSum / bfVmax)))
+print(paste('interaction:', as.vector(bfInt / bfSum)))
 ```
 
-# Publication plots
-```{r}
-if(out){
-    library(gridExtra)
-    vp <- grid::viewport(x=.324, y=.373, width=.12, height=.3)
-    vp2 <- grid::viewport(x=.8355, y=.373, width=.11, height=.3)
-    jpeg('mc_ct-v_s1.jpg', width=7, height=2.1, units='in', res=600)
-    grid.arrange(pSlowDir, pFastDir, ncol=2, widths=c(2.55/5,2.45/5))
-    print(pSlowIn, vp=vp)
-    print(pCSIn, vp=vp2)
-    dev.off()
-}
+# Additional combined figures
+
+## FigS2
+```{r, fig.height=3, fig.width=5}
+if(out){jpeg('mc_ct-v_s2.jpg', width=7, height=2.1, units='in', res=600)}
+grid.arrange(pCSmax + ggtitle('a'), pRingSzMin, ncol=2, widths=c(2.5/5,2.5/5))
+if(out){dev.off()}
+```
+
+## Fig2: Slow & Center-Surround Trials
+```{r, fig.height=3, fig.width=5}
+if(out){jpeg('mc_ct-v_fig2.jpg', width=7, height=2.1, units='in', res=600)}
+vp <- grid::viewport(x=.3135, y=.373, width=.12, height=.3)
+vp2 <- grid::viewport(x=.835, y=.373, width=.11, height=.3)
+grid.arrange(p2dSlow, pCS, ncol=2, widths=c(2.5/5,2.5/5))
+print(pSlowIn, vp=vp)
+print(pCSIn, vp=vp2)
+if(out){dev.off()}
 ```
