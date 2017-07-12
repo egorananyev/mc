@@ -30,6 +30,7 @@ library(reshape)
 library(matrixStats)
 library(lme4)
 library(BayesFactor)
+library(gridExtra)
 #library(splines)
 db <- '/home/egor/Dropbox/' # on Linux
 db <- '/Users/Egor/Dropbox/' # Windows
@@ -55,7 +56,8 @@ themefy <- function(p) {
             axis.text=element_text(size=8), axis.title=element_text(size=9),
             legend.text=element_text(size=8), legend.title=element_text(size=9),
             legend.key = element_blank(), legend.margin=unit(-.04, 'in'),
-            legend.background = element_rect(fill='transparent'))
+            legend.background = element_rect(fill='transparent'),
+            plot.title=element_text(face='bold'))
 }
 cc <- c('#a6cee3','#1f78b4','#b2df8a','#33a02c','#fb9a99','#e31a1c','#fdbf6f')
 ```
@@ -132,9 +134,12 @@ p <- ggplot(resp, aes(x=trialT, y=pResp, colour=resp, group=resp,
          y='Proportion of Trials', colour='Response\nType') + ylim(0,1) +
     guides(colour=guide_legend(keyheight=.3, default.unit='inch'))
 p <- themefy(p)
+pRespType <- p + ggtitle('a') + theme(legend.position='none')
 if(!out){plot(p)}else{png('mc_ct-t_resp.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
 ```
 
+<!--
+## Static only
 ```{r, fig.height=3, fig.width=5}
 p <- ggplot(resp[resp$resp=='static',], aes(x=trialT, y=pResp, colour=resp, group=resp,
                         ymin=pResp-seResp, ymax=pResp+seResp)) +
@@ -148,6 +153,7 @@ p <- themefy(p)
 if(!out){plot(p)}else{png('mc_ct-t_resp-1-stat.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
 ```
 
+## Not transparent
 ```{r, fig.height=3, fig.width=5}
 p <- ggplot(resp[resp$resp!='transparent',], aes(x=trialT, y=pResp, colour=resp, group=resp,
                         ymin=pResp-seResp, ymax=pResp+seResp)) +
@@ -160,7 +166,7 @@ p <- ggplot(resp[resp$resp!='transparent',], aes(x=trialT, y=pResp, colour=resp,
 p <- themefy(p)
 if(!out){plot(p)}else{png('mc_ct-t_resp-0-noTransp.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
 ```
-
+--->
 
 # Center size
 ```{r}
@@ -180,14 +186,16 @@ p <- ggplot(sumRingSzP, aes(x=trialT, y=ringSzP, colour=resp, group=resp,
     geom_point(position=dodge, size=1, alpha=alpha) +
     geom_line(position=dodge, alpha=alpha) +
     geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
-    labs(x='Trial Duration (s)',
-         y='Center/Stimulus Size',
+    labs(x='Trial Duration (s)', y='Center/Stimulus Size',
          colour='Response\nType') + ylim(0,1) +
     guides(colour=guide_legend(keyheight=.3, default.unit='inch'))
 p <- themefy(p)
+pCentSzP <- p + ggtitle('b')
 if(!out){plot(p)}else{png('mc_ct-t_ringSz.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
 ```
 
+<!--
+## Static only
 ```{r, fig.height=3, fig.width=5}
 p <- ggplot(sumRingSzP[sumRingSzP$resp=='static',], aes(x=trialT, y=ringSzP, colour=resp, group=resp,
                         ymin=ringSzP-ringSzPSe, ymax=ringSzP+ringSzPSe)) +
@@ -201,7 +209,7 @@ p <- ggplot(sumRingSzP[sumRingSzP$resp=='static',], aes(x=trialT, y=ringSzP, col
 p <- themefy(p)
 if(!out){plot(p)}else{png('mc_ct-t_ringSz-statOnly.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
 ```
-
+--->
 
 ```{r}
 ss <- ds[ds$trialT<=1,]
@@ -232,10 +240,13 @@ p <- ggplot(sumRingP, aes(x=trialT, y=ringP, colour=resp, group=resp,
     geom_line(position=dodge, alpha=alpha, show.legend = F) +
     geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
     scale_y_continuous(breaks=c(0,.5,1), limits=c(0,1)) + 
-    theme_bw() + theme(panel.grid.minor.x=element_blank(), panel.grid.minor.y=element_blank(),
+    theme_bw() + theme(panel.grid.minor.x=element_blank(), 
+                       panel.grid.minor.y=element_blank(),
         axis.text.x = element_blank(), axis.title=element_blank(),
         legend.text = element_blank(), legend.title=element_blank(),
-        legend.key = element_blank())
+        legend.key = element_blank(), plot.background=element_rect(fill='grey'),
+        axis.text.y = element_text(size=6))
+pRingPin <- p
 if(!out){plot(p)}else{png('mc_ct-t_ringP_inset.png', width=.8, height=.6, units='in', res=600); plot(p); dev.off()}
 ```
 
@@ -252,6 +263,16 @@ p <- themefy(p)
 if(!out){plot(p)}else{png('mc_ct-t_ringP.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
 ```
 
+# Combined plot (Fig.5)
+```{r, fig.height=2.1, fig.width=7}
+if(out){jpeg('mc_ct-v_fig5.jpg', width=7, height=2.1, units='in', res=600)}
+vp <- grid::viewport(x=.757, y=.4, width=.17, height=.35)
+grid.arrange(pRespType, pCentSzP, ncol=2, widths=c(2.21/5,2.79/5))
+print(pRingPin, vp=vp)
+if(out){dev.off()}
+```
+
+<!--
 # Analyses
 ```{r}
 # Analysis
@@ -259,3 +280,4 @@ if(!out){plot(p)}else{png('mc_ct-t_ringP.png', width=3.2, height=1.9, units='in'
 #library(lmerTest)
 source(paste(db, 'Prog/R/myFunctions/pvalfn.R', sep=''))
 ```
+--->

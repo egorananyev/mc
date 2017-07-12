@@ -30,6 +30,7 @@ library(reshape)
 library(matrixStats)
 library(lme4)
 library(BayesFactor)
+library(gridExtra)
 #library(splines)
 db <- '/home/egor/Dropbox/' # on Linux
 db <- '/Users/Egor/Dropbox/' # Windows
@@ -54,8 +55,9 @@ themefy <- function(p) {
          theme(panel.grid.minor.x=element_blank(), panel.grid.minor.y=element_blank(),
             axis.text=element_text(size=8), axis.title=element_text(size=9),
             legend.text=element_text(size=8), legend.title=element_text(size=9),
-            legend.key = element_blank(), legend.margin=unit(-.04, 'in'),
-            legend.background = element_rect(fill='transparent'))
+            legend.key = element_blank(), legend.margin=margin(t=-.04, unit='in'),
+            legend.background = element_rect(fill='transparent'),
+            plot.title=element_text(face='bold'))
 }
 cc <- c('#a6cee3','#1f78b4','#b2df8a','#33a02c','#fb9a99','#e31a1c','#fdbf6f')
 ```
@@ -136,10 +138,37 @@ p <- ggplot(resp, aes(x=stimSzDeg, y=pResp, colour=resp, group=resp,
          y='Proportion of Trials', colour='Response\nType') + ylim(0,1) +
     guides(colour=guide_legend(keyheight=.3, default.unit='inch'))
 p <- themefy(p)
-if(!out){plot(p)}else{png('mc_ct-sz_resp.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
+pRespType <- p + ggtitle('a') + theme(legend.position='none')
+# if(!out){plot(p)}else{png('mc_ct-sz_resp.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
+```
+
+```{r}
+m <- lmer(slow ~ stimSzDeg + (1|subj), data=ds)
+summary(m)
+anova(m)
+summary(lm(slow ~ stimSzDeg, data=ds))
+bfBase <- lmBF(slow ~ subj, data=ds, whichRandom = 'subj')
+bfSz <- lmBF(slow ~ stimSzDeg + subj, data=ds, whichRandom='subj')
+as.vector(bfSz / bfBase)
+```
+
+## Individual data
+```{r, fig.height=2.1, fig.width=7}
+p <- ggplot(respSubj, aes(x=stimSzDeg, y=pSubjResp, colour=resp, group=resp)) +
+    facet_grid(. ~ subj) +
+    geom_point(position=dodge, size=1, alpha=alpha) +
+    geom_line(position=dodge, alpha=alpha) +
+    # geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
+    labs(x=expression(paste('Stimulus Size (', degree, ')', sep='')),
+         y='Proportion of Trials', colour='Response\nType') + ylim(0,1) +
+    guides(colour=guide_legend(keyheight=.3, default.unit='inch'))
+p <- themefy(p)
+if(!out){plot(p)}else{png('mc_ct-sz_resp_indiv.png', width=7, height=2.1, units='in', res=600); plot(p); dev.off()}
 ```
 
 # Center size
+
+## Center size (p)
 ```{r}
 sumRingSzPSubj <- ddply(ds, .(subj, stimSzDeg, resp), summarise,
                        ringSzPSubj = mean(ringSzP))
@@ -157,13 +186,14 @@ p <- ggplot(sumRingSzP, aes(x=stimSzDeg, y=ringSzP, colour=resp, group=resp,
     geom_line(position=dodge, alpha=alpha) +
     geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
     labs(x=expression(paste('Stimulus Size (', degree, ')', sep='')),
-         y='Center/Stimulus Size',
-         colour='Response\nType') + ylim(0,1) +
+         y='Center/Stimulus Size', colour='Response\nType') + ylim(0,1) +
     guides(colour=guide_legend(keyheight=.3, default.unit='inch'))
 p <- themefy(p)
-if(!out){plot(p)}else{png('mc_ct-sz_ringSz.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
+pCentSzP <- p + ggtitle('b')
+# if(!out){plot(p)}else{png('mc_ct-sz_ringSz.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
 ```
 
+<!--
 ```{r, fig.height=3, fig.width=5}
 p <- ggplot(sumRingSzP[sumRingSzP$resp=='static',], 
             aes(x=stimSzDeg, y=ringSzP, colour=resp, group=resp,
@@ -178,7 +208,21 @@ p <- ggplot(sumRingSzP[sumRingSzP$resp=='static',],
 p <- themefy(p)
 if(!out){plot(p)}else{png('mc_ct-sz_ringSz-statOnly.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
 ```
+--->
 
+### Individual data
+```{r, fig.height=2.1, fig.width=7}
+p <- ggplot(sumRingSzPSubj, aes(x=stimSzDeg, y=ringSzPSubj, colour=resp, group=resp)) +
+    facet_grid(. ~ subj) +
+    geom_point(position=dodge, size=1, alpha=alpha) +
+    geom_line(position=dodge, alpha=alpha) +
+    labs(x=expression(paste('Stimulus Size (', degree, ')', sep='')),
+         y='Center Size (P)', colour='Response\nType') + ylim(0,1) +
+    guides(colour=guide_legend(keyheight=.3, default.unit='inch'))
+p <- themefy(p)
+if(!out){plot(p)}else{png('mc_ct-sz_szP_indiv.png', width=7, height=2.1, units='in', res=600); plot(p); dev.off()}
+# if(out){png('mc_ct-sz_szP_indiv_lowres.png', width=7, height=2.1, units='in', res=150); plot(p); dev.off()}
+```
 
 ```{r}
 m <- lmer(ringSzP ~ stimSzDeg + (1|subj), data=ds)
@@ -190,7 +234,7 @@ bfSz <- lmBF(ringSzP ~ stimSzDeg + subj, data=ds, whichRandom='subj')
 as.vector(bfSz / bfBase)
 ```
 
-# Center size (deg)
+## Center size (deg)
 ```{r}
 sumRingSzSubj <- ddply(ds, .(subj, stimSzDeg, resp), summarise,
                        ringSzSubj = mean(ringSzDeg))
@@ -198,10 +242,11 @@ sumRingSz <- ddply(sumRingSzSubj, .(resp, stimSzDeg), summarise,
                   ringSz = mean(ringSzSubj), 
                   ringSzSe = sd(ringSzSubj)/sqrt(length(subj)))
 sumRingSz$stimSzDeg <- as.factor(sumRingSz$stimSzDeg)
-sumRingSz$ringSz <- 
+#sumRingSz$ringSz <- as.factor(sumRingSz$ringSz)
 head(sumRingSz)
 ```
 
+<!--
 ```{r, fig.height=3, fig.width=5}
 p <- ggplot(sumRingSz[sumRingSz$resp=='static',], 
             aes(x=stimSzDeg, y=ringSz, colour=resp, group=resp,
@@ -216,6 +261,7 @@ p <- ggplot(sumRingSz[sumRingSz$resp=='static',],
 p <- themefy(p)
 if(!out){plot(p)}else{png('mc_ct-sz_ringSzDeg-statOnly.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
 ```
+--->
 
 # Proportion center/surround (inset)
 ```{r}
@@ -235,11 +281,14 @@ p <- ggplot(sumRingP, aes(x=stimSzDeg, y=ringP, colour=resp, group=resp,
     geom_line(position=dodge, alpha=alpha, show.legend = F) +
     geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
     scale_y_continuous(breaks=c(0,.5,1), limits=c(0,1)) + 
-    theme_bw() + theme(panel.grid.minor.x=element_blank(), panel.grid.minor.y=element_blank(),
+    theme_bw() + theme(panel.grid.minor.x=element_blank(), 
+                       panel.grid.minor.y=element_blank(),
         axis.text.x = element_blank(), axis.title=element_blank(),
         legend.text = element_blank(), legend.title=element_blank(),
-        legend.key = element_blank())
-if(!out){plot(p)}else{png('mc_ct-sz_ringP_inset.png', width=.8, height=.6, units='in', res=600); plot(p); dev.off()}
+        legend.key = element_blank(), plot.background=element_rect(fill='grey'),
+        axis.text.y = element_text(size=6))
+pCSpIn <- p
+# if(!out){plot(p)}else{png('mc_ct-sz_ringP_inset.png', width=.8, height=.6, units='in', res=600); plot(p); dev.off()}
 ```
 
 ```{r, fig.height=3, fig.width=5}
@@ -249,12 +298,22 @@ p <- ggplot(sumRingP, aes(x=stimSzDeg, y=ringP, colour=resp, group=resp,
     geom_line(position=dodge, alpha=alpha) +
     geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
     labs(x=expression(paste('Stimulus Size (', degree, ')', sep='')),
-         y='Static Center/Dynamic Surround       ', colour='Response\nType') + ylim(0,1) +
-    guides(colour=guide_legend(keyheight=.3, default.unit='inch'))
+         y='Static Center/Dynamic Surround       ', colour='Response\nType') +
+    guides(colour=guide_legend(keyheight=.3, default.unit='inch')) + ylim(0,1)
 p <- themefy(p)
-if(!out){plot(p)}else{png('mc_ct-sz_ringP.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
+# if(!out){plot(p)}else{png('mc_ct-sz_ringP.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
 ```
 
+# Combined plot (Fig.3)
+```{r, fig.height=2.1, fig.width=7}
+if(out){jpeg('mc_ct-v_fig3.jpg', width=7, height=2.1, units='in', res=600)}
+vp <- grid::viewport(x=.78, y=.405, width=.17, height=.35)
+grid.arrange(pRespType, pCentSzP, ncol=2, widths=c(2.21/5,2.79/5))
+print(pCSpIn, vp=vp)
+if(out){dev.off()}
+```
+
+<!--
 # Analyses
 ```{r}
 # Analysis
@@ -262,3 +321,4 @@ if(!out){plot(p)}else{png('mc_ct-sz_ringP.png', width=3.2, height=1.9, units='in
 #library(lmerTest)
 source(paste(db, 'Prog/R/myFunctions/pvalfn.R', sep=''))
 ```
+--->

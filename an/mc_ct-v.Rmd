@@ -592,7 +592,8 @@ p <- ggplot(sumTransp, aes(x=factor(vMin), y=pResp, colour=factor(vMax), group=f
     guides(colour=guide_legend(keyheight=.2, default.unit='inch')) +
     scale_colour_manual(values=cc[2:7])
 p <- themefy(p)
-if(!out){plot(p)}else{png('mc_ct-v_transpVmin.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
+pTranspMin <- p + ggtitle('a')
+# if(!out){plot(p)}else{png('mc_ct-v_transpVmin.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
 ```
 
 <!--
@@ -622,7 +623,15 @@ p <- ggplot(sumTransp, aes(x=factor(vMax), y=pResp, colour=factor(vMin), group=f
     guides(colour=guide_legend(keyheight=.2, default.unit='inch')) +
     scale_colour_manual(values=cc)
 p <- themefy(p)
-if(!out){plot(p)}else{png('mc_ct-v_transpVmax.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
+pTranspMax <- p + ggtitle('b')
+# if(!out){plot(p)}else{png('mc_ct-v_transpVmax.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
+```
+
+#### Combined figure
+```{r, fig.height=2.1, fig.width=7}
+# if(out){jpeg('mc_ct-v_dir.jpg', width=7, height=2.1, units='in', res=600)}
+grid.arrange(pTranspMin, pTranspMax, ncol=2, widths=c(2.5/5,2.5/5))
+# if(out){dev.off()}
 ```
 
 ```{r}
@@ -675,6 +684,7 @@ p <- ggplot(sumCs, aes(x=factor(vMin), y=pScfs, colour=factor(vMax), group=facto
     guides(colour=guide_legend(keyheight=.2, default.unit='inch')) +
     scale_colour_manual(values=cc[2:7])
 p <- themefy(p)
+pSCFSmin <- p + ggtitle('a')
 # if(!out){plot(p)}else{png('mc_ct-v_scfsVmin.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
 ```
 
@@ -691,7 +701,15 @@ p <- ggplot(sumCs, aes(x=factor(vMax), y=pScfs, colour=factor(vMin), group=facto
     scale_colour_manual(values=cc)
 p <- themefy(p)
 pSCFS <- p + ggtitle('a')
+pSCFSmax <- p + ggtitle('b')
 # if(!out){plot(p)}else{png('mc_ct-v_scfsVmax.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
+```
+
+#### Combined figure
+```{r, fig.height=2.1, fig.width=7}
+# if(out){jpeg('mc_ct-v_dir.jpg', width=7, height=2.1, units='in', res=600)}
+grid.arrange(pSCFSmin, pSCFSmax, ncol=2, widths=c(2.5/5,2.5/5))
+# if(out){dev.off()}
 ```
 
 ## Fast-center/slow-surround
@@ -708,6 +726,7 @@ p <- ggplot(sumCs, aes(x=factor(vMin), y=pFcss, colour=factor(vMax), group=facto
     guides(colour=guide_legend(keyheight=.2, default.unit='inch')) +
     scale_colour_manual(values=cc[2:7])
 p <- themefy(p)
+pFCSSmin <- p + ggtitle('a')
 # if(!out){plot(p)}else{png('mc_ct-v_fcssVmin.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
 ```
 
@@ -723,7 +742,15 @@ p <- ggplot(sumCs, aes(x=factor(vMax), y=pFcss, colour=factor(vMin), group=facto
     guides(colour=guide_legend(keyheight=.2, default.unit='inch')) +
     scale_colour_manual(values=cc)
 p <- themefy(p)
+pFCSSmax <- p + ggtitle('b')
 # if(!out){plot(p)}else{png('mc_ct-v_fcssVmax.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
+```
+
+#### Combined figure
+```{r, fig.height=2.1, fig.width=7}
+#if(out){jpeg('mc_ct-v_dir.jpg', width=7, height=2.1, units='in', res=600)}
+grid.arrange(pFCSSmin, pFCSSmax, ncol=2, widths=c(2.5/5,2.5/5))
+#if(out){dev.off()}
 ```
 
 # Slow-center/fast-surround among slow
@@ -753,7 +780,7 @@ p <- ggplot(sumRing, aes(x=factor(vMin), y=factor(vMax), color=nResp)) +
          color='Center-\nSurround\n(N trials)\n') + 
     guides(color=guide_colorbar(barwidth=1, barheight=4)) + ggtitle('b')
 p <- themefy(p)
-# if(!out){plot(p)}else{png('mc_ct-v_ringV2d2n.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
+if(!out){plot(p)}else{png('mc_ct-v_ringV2d2n.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
 ```
 
 #### Proportion
@@ -865,7 +892,7 @@ p <- ggplot(sumRingSzP[sumRingSzP$vMax>=8,], aes(x=factor(vMin), y=ringSzP, colo
     scale_colour_manual(values=cc[c(5,7)])
 p <- themefy(p)
 pRingSzMin <- p + ggtitle('b')
-# if(!out){plot(p)}else{png('mc_ct-v_ringSzPVmin.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
+if(!out){plot(p)}else{png('mc_ct-v_ringSzPVmin.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
 ```
 
 <!--
@@ -895,7 +922,7 @@ p <- ggplot(sumRingSzP, aes(x=factor(vMax), y=ringSzP, colour=factor(vMin), grou
     guides(colour=guide_legend(keyheight=.2, default.unit='inch')) +
     scale_colour_manual(values=cc)
 p <- themefy(p)
-# if(!out){plot(p)}else{png('mc_ct-v_ringSzPVmax.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
+if(!out){plot(p)}else{png('mc_ct-v_ringSzPVmax.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
 ```
 
 ```{r}
@@ -914,14 +941,14 @@ print(paste('interaction:', as.vector(bfInt / bfSum)))
 # Additional combined figures
 
 ## FigS2
-```{r, fig.height=3, fig.width=5}
+```{r, fig.height=2.1, fig.width=7}
 if(out){jpeg('mc_ct-v_s2.jpg', width=7, height=2.1, units='in', res=600)}
 grid.arrange(pCSmax + ggtitle('a'), pRingSzMin, ncol=2, widths=c(2.5/5,2.5/5))
 if(out){dev.off()}
 ```
 
 ## Fig2: Slow & Center-Surround Trials
-```{r, fig.height=3, fig.width=5}
+```{r, fig.height=2.1, fig.width=7}
 if(out){jpeg('mc_ct-v_fig2.jpg', width=7, height=2.1, units='in', res=600)}
 vp <- grid::viewport(x=.3135, y=.373, width=.12, height=.3)
 vp2 <- grid::viewport(x=.835, y=.373, width=.11, height=.3)
