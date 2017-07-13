@@ -62,6 +62,22 @@ themefy <- function(p) {
 cc <- c('#a6cee3','#1f78b4','#b2df8a','#33a02c','#fb9a99','#e31a1c','#fdbf6f')
 ```
 
+## Summary function
+```{r}
+# computes individual and group means and SDs; req's y to be the var of interest
+sumFn <- function(ss, subjStr, xStr, grpStr){
+    sumSubj <- ddply(ss, c(subjStr, xStr, grpStr), summarise,
+                     mnS=mean(y), se=sd(y)/sqrt(length(y)))
+    sumGrp <- ddply(sumSubj, c(xStr, grpStr), summarise,
+                  mn=mean(mnS), se=sd(mnS)/sqrt(length(mnS)))
+    sumGrp$subj <- 'average'
+    sumSubj <- rename(sumSubj, c(mnS='mn'))
+    sumComb <- rbind(sumGrp, sumSubj)
+    sumComb$se[is.na(sumComb$se)] <- 0
+    sumComb
+}
+```
+
 ## Loading the data
 ```{r}
 colsOfInt <- c('participant','session','trialN', #info
@@ -252,27 +268,7 @@ if(out){dev.off()}
 ```{r}
 ss <- ds[ds$tDelayDyna==0,]
 ss$y <- ss$ringSzP
-sumRingSzPSubj <- ddply(ss, .(subj, tDelayStat, resp), summarise,
-                       ringSzPSubj = mean(ringSzP),
-                       ringSzPSubjSe = sd(ringSzP)/sqrt(length(ringSzP)))
-sumRingSzP <- ddply(sumRingSzPSubj, .(resp, tDelayStat), summarise,
-                  ringSzP = mean(ringSzPSubj), 
-                  ringSzPSe = sd(ringSzPSubj)/sqrt(length(subj)))
-# sumRingSzP$tDelayStat <- round(sumRingSzP$tDelayStat,1)
-# sumRingSzP$tDelayStat <- as.factor(sumRingSzP$tDelayStat)
-sumRingSzPSubj$ringSzPSubjSe[is.na(sumRingSzPSubj$ringSzPSubjSe)] <- 0
-head(sumRingSzP)
-sumFn <- function(ss, subjStr, xStr, grpStr){
-    sumSubj <- ddply(ss, c(subjStr, xStr, grpStr), summarise,
-                     mnS=mean(y), se=sd(y)/sqrt(length(y)))
-    sumGrp <- ddply(sumSubj, c(xStr, grpStr), summarise,
-                  mn=mean(mnS), se=sd(mnS)/sqrt(length(mnS)))
-    sumGrp$subj <- 'average'
-    sumSubj <- rename(sumSubj, c(mnS='mn'))
-    sumComb <- rbind(sumGrp, sumSubj)
-    sumComb$se[is.na(sumComb$se)] <- 0
-    sumComb
-}
+sumSs <- sumFn(ss, 'subj', 'tDelayStat', 'resp')
 ```
 
 ```{r}
