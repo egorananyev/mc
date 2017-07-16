@@ -50,7 +50,7 @@ allDirs <- allDirs[grep(paste(expt,'_p',sep=''), allDirs)]
 dodge <- position_dodge(width=0)
 alpha <- .8
 cc <- c('#a6cee3','#1f78b4','#b2df8a','#33a02c','#fb9a99','#e31a1c','#fdbf6f')
-xLab <- 'Trial Duration'
+xLab <- 'Trial Duration (s)'
 yLab <- 'Proportion of Trials'
 yLabSz <- 'Center/Stimulus Size'
 yLabCS <- 'Proportion Center-Surround'
@@ -70,40 +70,59 @@ themefy <- function(p) {
             legend.background = element_rect(fill='transparent'),
             plot.title=element_text(face='bold'))
 }
-plotAve <- function(pss, subjStr='subj', xStr, grpStr='resp', 
+plotAve <- function(pss, subjStr='subj', xStr='trialT', grpStr='resp', 
                     xlab, ylab=yLab, collab=colLab, yStr='mn', seStr='se'){
     pss$yMin <- pss[,yStr] - pss[,seStr]
     pss$yMax <- pss[,yStr] + pss[,seStr]
     p <- ggplot(pss, aes_string(x=xStr, y=yStr, colour=grpStr, group=grpStr,
                             ymin='yMin', ymax='yMax')) +
         geom_point(position=dodge, size=1, alpha=alpha) + geom_line(position=dodge, alpha=alpha) +
-        scale_x_continuous(breaks=c(0,.2,.4,.6,.8,1), labels=c('0','0.2','0.4','0.6','0.8','1')) +
+        scale_x_continuous(breaks=c(.33,.66,1,1.33,1.66,2), 
+                           labels=c('0.33','0.66','1','1.33','1.66','2')) +
         geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
         labs(x=xlab, y=ylab, colour=collab) +  ylim(0,1) + 
         guides(colour=guide_legend(keyheight=.3, default.unit='inch'))
     p <- themefy(p)
 }
-plotIndiv <- function(pss, subjStr='subj', xStr, grpStr='resp', 
+plotIndiv <- function(pss, subjStr='subj', xStr='trialT', grpStr='resp', 
                     xlab, ylab=yLab, collab=colLab2, yStr='mn', seStr='se'){
     pss$yMin <- pss[,yStr] - pss[,seStr]
     pss$yMax <- pss[,yStr] + pss[,seStr]
     p <- ggplot(pss, aes_string(x=xStr, y=yStr, colour=grpStr, group=grpStr,
                             ymin='yMin', ymax='yMax')) + 
-        facet_grid(paste('.~factor(', subjStr, ')', sep='')) +
+        # facet_grid(paste('.~factor(', subjStr, ')', sep='')) +
+        facet_wrap( ~ subj, ncol=4) +
         geom_point(position=dodge, size=1, alpha=alpha) + geom_line(position=dodge, alpha=alpha) +
         geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
-        scale_x_continuous(breaks=c(0,.2,.4,.6,.8,1), labels=c('0','','','','','1'), limits=c(0,1))+
+        scale_x_continuous(breaks=c(.33,.66,1,1.33,1.66,2), labels=c('0.3','','','','','2')) +
+        #, limits=c(.3,2))+ #  
         scale_y_continuous(breaks=c(0,.25,.5,.75,1), labels=c('0','','0.5','','1'), limits=c(0,1)) +
         labs(x=xlab, y=ylab, colour=collab) + 
         guides(colour=guide_legend(keyheight=.3, default.unit='inch'))
     p <- themefy(p)
+}
+plotInset <- function(pss, subjStr='subj', xStr='trialT', grpStr='resp', 
+                    xlab, ylab=yLab, collab=colLab, yStr='mn', seStr='se'){
+    pss$yMin <- pss[,yStr] - pss[,seStr]
+    pss$yMax <- pss[,yStr] + pss[,seStr]
+    p <- ggplot(pss, aes_string(x=xStr, y=yStr, colour=grpStr, group=grpStr,
+                            ymin='yMin', ymax='yMax')) + 
+        geom_point(position=dodge, size=1, alpha=alpha) + geom_line(position=dodge, alpha=alpha) +
+        scale_y_continuous(breaks=c(0,.5,1), limits=c(0,1)) + 
+        geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
+        labs(x=xlab, y=ylab, colour=collab) + 
+        guides(colour=guide_legend(keyheight=.3, default.unit='inch')) +
+        theme_bw() + theme(panel.grid.minor.x=element_blank(), panel.grid.minor.y=element_blank(),
+                           axis.text.x = element_blank(), axis.title=element_blank(),
+                           legend.position = 'none', plot.background=element_rect(fill='grey'),
+                           axis.text.y = element_text(size=6))
 }
 ```
 
 ## Summary functions
 ```{r}
 # computes individual and group means and SDs; req's y to be the var of interest
-sumFn <- function(ss, subjStr='subj', xStr, grpStr='resp'){
+sumFn <- function(ss, subjStr='subj', xStr='trialT', grpStr='resp'){
     sumSubj <- ddply(ss, c(subjStr, xStr, grpStr), summarise,
                      mnS=mean(y), se=sd(y)/sqrt(length(y))) #, .drop=F)
     # sumSubj$mnS[is.na(sumSubj$mnS)] <- 0
@@ -116,7 +135,7 @@ sumFn <- function(ss, subjStr='subj', xStr, grpStr='resp'){
     sumComb
 }
 # computes the proportion of different levels of 'grpStr' -- here, response types
-sumPFn <- function(ss, subjStr='subj', xStr, grpStr='resp'){
+sumPFn <- function(ss, subjStr='subj', xStr='trialT', grpStr='resp'){
     sumSubj <- ddply(ss, c(subjStr, xStr, grpStr), summarise, nm = length(subj), .drop=F)
     sumGrp <- ddply(sumSubj, c(subjStr, xStr), summarise, tot=sum(nm))
     sumSubj <- merge(sumSubj, sumGrp, by=c(subjStr,xStr))
@@ -153,6 +172,13 @@ for(curSess in allDirs){
 # Selecting a subset of the data:
 ds <- df #[colsOfInt]
 ds <- rename(ds, c(participant='subj', session='sess'))
+# Replacing pnt IDs with something a little more useful:
+ds$subj[ds$subj==9] <- 4
+ds$subj[ds$subj==11] <- 5
+ds$subj[ds$subj==13] <- 6
+ds$subj[ds$subj==14] <- 7
+ds$subj[ds$subj==19] <- 8
+ds$subj[ds$subj==20] <- 9
 ds$subj <- as.factor(ds$subj)
 # Size conversions:
 ds$ringSzDeg <- round((ds$ringSz+32)/35,1)
@@ -165,17 +191,17 @@ head(ds)
 
 # Types of responses
 ```{r}
-# noDir, fastDir, slowDir, transparent
-ds$slow <- 0
-ds$slow[ds$nf270==1] <- 1
-ds$fast <- 0
-ds$fast[ds$nf180==1] <- 1
+# noDir, dynaDir, statDir, transparent
+ds$stat <- 0
+ds$stat[ds$nf270==1] <- 1
+ds$dyna <- 0
+ds$dyna[ds$nf180==1] <- 1
 ds$patchy <- 0
 ds$patchy[ds$nf090==1] <- 1
 ds$transp <- 0
 ds$transp[ds$nf000==1] <- 1
-ds$resp[ds$slow==1] <- 'static'
-ds$resp[ds$fast==1] <- 'dynamic'
+ds$resp[ds$stat==1] <- 'static'
+ds$resp[ds$dyna==1] <- 'dynamic'
 ds$resp[ds$patchy==1] <- 'patchy'
 ds$resp[ds$transp==1] <- 'transparent'
 ds$resp <- factor(ds$resp, levels = c('static','dynamic','patchy','transparent'))
@@ -183,104 +209,81 @@ head(ds)
 ```
 
 ```{r}
-respSubj <- ddply(ds, .(subj, trialT, resp), summarise, numSubjResp = length(subj))
-resp <- ddply(respSubj, .(trialT, subj), summarise, totResp = sum(numSubjResp))
-respSubj <- merge(respSubj, resp, by=c('subj','trialT'))
-respSubj$pSubjResp <- with(respSubj, numSubjResp/totResp)
-resp <- ddply(respSubj, .(trialT, resp), summarise,
-                  pResp = mean(pSubjResp), seResp=sd(pSubjResp)/sqrt(length(subj)))
-resp$trialT <- round(resp$trialT,1)
-resp$trialT <- as.factor(resp$trialT)
-head(resp)
+sumSs <- sumPFn(ds)
+sumSsAve <- sumSs[sumSs$subj=='average',]
+pResp <- plotAve(pss=sumSsAve, xlab=xLab)
+pRespIndiv <- plotIndiv(pss=sumSs[sumSs$subj!='average',], xlab=xLab)
+ddply(sumSsAve, .(resp), summarize, respMean=round(mean(mn),2), respSD=round(sd(mn),2))
 ```
 
-```{r, fig.height=3, fig.width=5}
-p <- ggplot(resp, aes(x=trialT, y=pResp, colour=resp, group=resp,
-                        ymin=pResp-seResp, ymax=pResp+seResp)) +
-    geom_point(position=dodge, size=1, alpha=alpha) +
-    geom_line(position=dodge, alpha=alpha) +
-    geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
-    labs(x='Trial Duration (s)',
-         y='Proportion of Trials', colour='Response\nType') + ylim(0,1) +
-    guides(colour=guide_legend(keyheight=.3, default.unit='inch'))
-p <- themefy(p)
-pRespType <- p + ggtitle('a') + theme(legend.position='none')
-if(!out){plot(p)}else{png('mc_ct-t_resp.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
+```{r, fig.height=5, fig.width=9}
+if(out){jpeg('mc_ct-t_resp_indiv.jpg', width=7, height=3.2, units='in', res=600)}
+pRespIndiv
+if(out){dev.off()}
 ```
 
-<!--
-## Static only
-```{r, fig.height=3, fig.width=5}
-p <- ggplot(resp[resp$resp=='static',], aes(x=trialT, y=pResp, colour=resp, group=resp,
-                        ymin=pResp-seResp, ymax=pResp+seResp)) +
-    geom_point(position=dodge, size=1, alpha=alpha) +
-    geom_line(position=dodge, alpha=alpha) +
-    geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
-    labs(x='Trial Duration (s)',
-         y='Proportion of Trials', colour='Response\nType') + ylim(0,1) +
-    guides(colour=guide_legend(keyheight=.3, default.unit='inch'))
-p <- themefy(p)
-if(!out){plot(p)}else{png('mc_ct-t_resp-1-stat.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
+## stat dom ~ static delay
+```{r}
+m <- lmer(stat ~ trialT + (1|subj), data=ds)
+summary(m)
+anova(m)
+summary(lm(stat ~ trialT, data=ds))
+bfBase <- lmBF(stat ~ subj, data=ds, whichRandom = 'subj')
+bfSz <- lmBF(stat ~ trialT + subj, data=ds, whichRandom='subj')
+as.vector(bfSz / bfBase)
 ```
 
-## Not transparent
-```{r, fig.height=3, fig.width=5}
-p <- ggplot(resp[resp$resp!='transparent',], aes(x=trialT, y=pResp, colour=resp, group=resp,
-                        ymin=pResp-seResp, ymax=pResp+seResp)) +
-    geom_point(position=dodge, size=1, alpha=alpha) +
-    geom_line(position=dodge, alpha=alpha) +
-    geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
-    labs(x='Trial Duration (s)',
-         y='Proportion of Trials', colour='Response\nType') + ylim(0,1) +
-    guides(colour=guide_legend(keyheight=.3, default.unit='inch'))
-p <- themefy(p)
-if(!out){plot(p)}else{png('mc_ct-t_resp-0-noTransp.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
+## dyna dom ~ static delay
+```{r}
+m <- lmer(dyna ~ trialT + (1|subj), data=ds)
+summary(m)
+anova(m)
+summary(lm(dyna ~ trialT, data=ds))
+bfBase <- lmBF(dyna ~ subj, data=ds, whichRandom = 'subj')
+bfSz <- lmBF(dyna ~ trialT + subj, data=ds, whichRandom='subj')
+as.vector(bfSz / bfBase)
 ```
---->
+
+## patchy dom ~ patchy delay
+```{r}
+m <- lmer(patchy ~ trialT + (1|subj), data=ds)
+summary(m)
+anova(m)
+summary(lm(patchy ~ trialT, data=ds))
+bfBase <- lmBF(patchy ~ subj, data=ds, whichRandom = 'subj')
+bfSz <- lmBF(patchy ~ trialT + subj, data=ds, whichRandom='subj')
+as.vector(bfSz / bfBase)
+```
+
+## transparent dom ~ patchy delay
+```{r}
+m <- lmer(transp ~ trialT + (1|subj), data=ds)
+summary(m)
+anova(m)
+summary(lm(transp ~ trialT, data=ds))
+bfBase <- lmBF(transp ~ subj, data=ds, whichRandom = 'subj')
+bfSz <- lmBF(transp ~ trialT + subj, data=ds, whichRandom='subj')
+as.vector(bfSz / bfBase)
+```
 
 # Center size
 ```{r}
-sumRingSzPSubj <- ddply(ds, .(subj, trialT, resp), summarise,
-                       ringSzPSubj = mean(ringSzP))
-sumRingSzP <- ddply(sumRingSzPSubj, .(resp, trialT), summarise,
-                  ringSzP = mean(ringSzPSubj), 
-                  ringSzPSe = sd(ringSzPSubj)/sqrt(length(subj)))
-sumRingSzP$trialT <- round(sumRingSzP$trialT,1)
-sumRingSzP$trialT <- as.factor(sumRingSzP$trialT)
-head(sumRingSzP)
+ss <- ds
+ss$y <- ss$ringSzP
+sumSs <- sumFn(ss)
+sumSsAve <- sumSs[sumSs$subj=='average',]
+pSz <- plotAve(pss=sumSsAve, xlab=xLab, ylab=yLabSz)
+pIndivSz <- plotIndiv(pss=sumSs[sumSs$subj!='average',], xlab=xLab, ylab=yLabSz)
+ddply(sumSsAve, .(resp), summarize, respMean=round(mean(mn),2), respSD=round(sd(mn),2))
 ```
 
-```{r, fig.height=3, fig.width=5}
-p <- ggplot(sumRingSzP, aes(x=trialT, y=ringSzP, colour=resp, group=resp,
-                        ymin=ringSzP-ringSzPSe, ymax=ringSzP+ringSzPSe)) +
-    geom_point(position=dodge, size=1, alpha=alpha) +
-    geom_line(position=dodge, alpha=alpha) +
-    geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
-    labs(x='Trial Duration (s)', y='Center/Stimulus Size',
-         colour='Response\nType') + ylim(0,1) +
-    guides(colour=guide_legend(keyheight=.3, default.unit='inch'))
-p <- themefy(p)
-pCentSzP <- p + ggtitle('b')
-if(!out){plot(p)}else{png('mc_ct-t_ringSz.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
+```{r, fig.height=4.2, fig.width=7}
+if(out){jpeg('mc_ct-t_sz_indiv.jpg', width=7, height=3.2, units='in', res=600)}
+pIndivSz
+if(out){dev.off()}
 ```
 
-<!--
-## Static only
-```{r, fig.height=3, fig.width=5}
-p <- ggplot(sumRingSzP[sumRingSzP$resp=='static',], aes(x=trialT, y=ringSzP, colour=resp, group=resp,
-                        ymin=ringSzP-ringSzPSe, ymax=ringSzP+ringSzPSe)) +
-    geom_point(position=dodge, size=1, alpha=alpha) +
-    geom_line(position=dodge, alpha=alpha) +
-    geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
-    labs(x='Trial Duration (s)',
-         y='Center Size (P)',
-         colour='Response\nType') + ylim(0,1) +
-    guides(colour=guide_legend(keyheight=.3, default.unit='inch'))
-p <- themefy(p)
-if(!out){plot(p)}else{png('mc_ct-t_ringSz-statOnly.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
-```
---->
-
+The analysis for center size was performed on the first second of the trial only, as the incidence of static dominance dropped for longer durations.
 ```{r}
 ss <- ds[ds$trialT<=1,]
 m <- lmer(ringSzP ~ trialT + (1|subj), data=ss)
@@ -292,62 +295,41 @@ bfT <- lmBF(ringSzP ~ trialT + subj, data=ss, whichRandom='subj')
 as.vector(bfT / bfBase)
 ```
 
-# Proportion center/surround (inset)
+# Proportion center/surround
 ```{r}
-sumRingPSubj <- ddply(ds, .(subj, trialT, resp), summarise,
-                       ringPSubj = mean(ring))
-sumRingP <- ddply(sumRingPSubj, .(resp, trialT), summarise,
-                  ringP = mean(ringPSubj), 
-                  ringPSe = sd(ringPSubj)/sqrt(length(subj)))
-sumRingP$trialT <- as.factor(sumRingP$trialT)
-head(sumRingP)
+ss <- ds
+ss$y <- ss$ring
+sumSs <- sumFn(ss)
+sumSsAve <- sumSs[sumSs$subj=='average',]
+pCs <- plotAve(pss=sumSsAve, xlab=xLab, ylab=yLabCS)
+pInsetCs <- plotInset(pss=sumSsAve, xlab=xLab, ylab=yLabCS)
+pIndivCs <- plotIndiv(pss=sumSs[sumSs$subj!='average',], xlab=xLab, ylab=yLabCS)
+ddply(sumSsAve, .(resp), summarize, respMean=round(mean(mn),2), respSD=round(sd(mn),2))
 ```
 
-```{r, fig.height=3, fig.width=5}
-p <- ggplot(sumRingP, aes(x=trialT, y=ringP, colour=resp, group=resp,
-                        ymin=ringP-ringPSe, ymax=ringP+ringPSe)) +
-    geom_point(position=dodge, size=.5, alpha=alpha, show.legend = F) +
-    geom_line(position=dodge, alpha=alpha, show.legend = F) +
-    geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
-    scale_y_continuous(breaks=c(0,.5,1), limits=c(0,1)) + 
-    theme_bw() + theme(panel.grid.minor.x=element_blank(), 
-                       panel.grid.minor.y=element_blank(),
-        axis.text.x = element_blank(), axis.title=element_blank(),
-        legend.text = element_blank(), legend.title=element_blank(),
-        legend.key = element_blank(), plot.background=element_rect(fill='grey'),
-        axis.text.y = element_text(size=6))
-pRingPin <- p
-if(!out){plot(p)}else{png('mc_ct-t_ringP_inset.png', width=.8, height=.6, units='in', res=600); plot(p); dev.off()}
+```{r, fig.height=4.2, fig.width=7}
+if(out){jpeg('mc_ct-t_cs_indiv.jpg', width=7, height=3.2, units='in', res=600)}
+pIndivCs
+if(out){dev.off()}
 ```
 
-```{r, fig.height=3, fig.width=5}
-p <- ggplot(sumRingP, aes(x=trialT, y=ringP, colour=resp, group=resp,
-                        ymin=ringP-ringPSe, ymax=ringP+ringPSe)) +
-    geom_point(position=dodge, size=1, alpha=alpha) +
-    geom_line(position=dodge, alpha=alpha) +
-    geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
-    labs(x='Trial Duration (s)', y='Static Center/Dynamic Surround         ',
-         colour='Response\nType') + ylim(0,1) +
-    guides(colour=guide_legend(keyheight=.3, default.unit='inch'))
-p <- themefy(p)
-if(!out){plot(p)}else{png('mc_ct-t_ringP.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
+The analysis for center-surround trials was performed on the first second of the trial only, as the incidence of static dominance dropped for longer durations.
+```{r}
+ss <- ds[ds$trialT<=1,]
+m <- lmer(ring~ trialT + (1|subj), data=ss)
+summary(m)
+anova(m)
+summary(lm(ring~ trialT, data=ss))
+bfBase <- lmBF(ring~ subj, data=ss, whichRandom = 'subj')
+bfT <- lmBF(ring~ trialT + subj, data=ss, whichRandom='subj')
+as.vector(bfT / bfBase)
 ```
 
 # Combined plot (Fig.5)
 ```{r, fig.height=2.1, fig.width=7}
-if(out){jpeg('mc_ct-v_fig5.jpg', width=7, height=2.1, units='in', res=600)}
+if(out){jpeg('mc_ct-t_fig5.jpg', width=7, height=2.1, units='in', res=600)}
 vp <- grid::viewport(x=.757, y=.4, width=.17, height=.35)
-grid.arrange(pRespType, pCentSzP, ncol=2, widths=c(2.21/5,2.79/5))
-print(pRingPin, vp=vp)
+grid.arrange(pResp+theme(legend.position='none'), pSz, ncol=2, widths=c(2.21/5,2.79/5))
+print(pInsetCs, vp=vp)
 if(out){dev.off()}
 ```
-
-<!--
-# Analyses
-```{r}
-# Analysis
-#library(lme4)
-#library(lmerTest)
-source(paste(db, 'Prog/R/myFunctions/pvalfn.R', sep=''))
-```
---->
