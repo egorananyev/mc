@@ -46,33 +46,88 @@ allDirs <- allDirs[grep(paste(expt,'_p',sep=''), allDirs)]
 ```
 
 ## Plot variables
-```{r, message=FALSE, warning=FALSE}
-# theme for plotting:
+```{r}
 dodge <- position_dodge(width=0)
 alpha <- .8
+cc <- c('#a6cee3','#1f78b4','#b2df8a','#33a02c','#fb9a99','#e31a1c','#fdbf6f')
+xLabStat <- 'Static Stimulus Delay (s)'
+xLabDyna <- 'Dynamic Stimulus Delay (s)'
+yLab <- 'Proportion of Trials'
+yLabSz <- 'Center/Stimulus Size'
+yLabCS <- 'Proportion Center-Surround'
+colLab <- 'Response\nType'
+colLab2 <- 'Response Type' # for use in indiv plots where col label is along the bottom
+```
+
+## Plot functions
+```{r, message=FALSE, warning=FALSE}
+# theme for plotting:
 themefy <- function(p) {
     p <- p + theme_bw() + 
          theme(panel.grid.minor.x=element_blank(), panel.grid.minor.y=element_blank(),
             axis.text=element_text(size=8), axis.title=element_text(size=9),
             legend.text=element_text(size=8), legend.title=element_text(size=9),
-            legend.key = element_blank(), legend.margin=unit(-.04, 'in'),
+            legend.key = element_blank(), legend.margin=margin(t=-.04, unit='in'),
             legend.background = element_rect(fill='transparent'),
             plot.title=element_text(face='bold'))
 }
-cc <- c('#a6cee3','#1f78b4','#b2df8a','#33a02c','#fb9a99','#e31a1c','#fdbf6f')
+plotAve <- function(pss, subjStr='subj', xStr, grpStr='resp', 
+                    xlab, ylab=yLab, collab=colLab, yStr='mn', seStr='se'){
+    pss$yMin <- pss[,yStr] - pss[,seStr]
+    pss$yMax <- pss[,yStr] + pss[,seStr]
+    p <- ggplot(pss, aes_string(x=xStr, y=yStr, colour=grpStr, group=grpStr,
+                            ymin='yMin', ymax='yMax')) +
+        geom_point(position=dodge, size=1, alpha=alpha) + geom_line(position=dodge, alpha=alpha) +
+        scale_x_continuous(breaks=c(0,.2,.4,.6,.8,1), labels=c('0','0.2','0.4','0.6','0.8','1')) +
+        geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
+        labs(x=xlab, y=ylab, colour=collab) +  ylim(0,1) + 
+        guides(colour=guide_legend(keyheight=.3, default.unit='inch'))
+    p <- themefy(p)
+}
+plotIndiv <- function(pss, subjStr='subj', xStr, grpStr='resp', 
+                    xlab, ylab=yLab, collab=colLab2, yStr='mn', seStr='se'){
+    pss$yMin <- pss[,yStr] - pss[,seStr]
+    pss$yMax <- pss[,yStr] + pss[,seStr]
+    p <- ggplot(pss, aes_string(x=xStr, y=yStr, colour=grpStr, group=grpStr,
+                            ymin='yMin', ymax='yMax')) + 
+        facet_grid(paste('.~factor(', subjStr, ')', sep='')) +
+        geom_point(position=dodge, size=1, alpha=alpha) + geom_line(position=dodge, alpha=alpha) +
+        geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
+        scale_x_continuous(breaks=c(0,.2,.4,.6,.8,1), labels=c('0','','','','','1'), limits=c(0,1))+
+        scale_y_continuous(breaks=c(0,.25,.5,.75,1), labels=c('0','','0.5','','1'), limits=c(0,1)) +
+        labs(x=xlab, y=ylab, colour=collab) + 
+        guides(colour=guide_legend(keyheight=.3, default.unit='inch'))
+    p <- themefy(p)
+}
 ```
 
-## Summary function
+## Summary functions
 ```{r}
 # computes individual and group means and SDs; req's y to be the var of interest
-sumFn <- function(ss, subjStr, xStr, grpStr){
+sumFn <- function(ss, subjStr='subj', xStr, grpStr='resp'){
     sumSubj <- ddply(ss, c(subjStr, xStr, grpStr), summarise,
-                     mnS=mean(y), se=sd(y)/sqrt(length(y)))
+                     mnS=mean(y), se=sd(y)/sqrt(length(y))) #, .drop=F)
+    # sumSubj$mnS[is.na(sumSubj$mnS)] <- 0
     sumGrp <- ddply(sumSubj, c(xStr, grpStr), summarise,
                   mn=mean(mnS), se=sd(mnS)/sqrt(length(mnS)))
     sumGrp$subj <- 'average'
     sumSubj <- rename(sumSubj, c(mnS='mn'))
     sumComb <- rbind(sumGrp, sumSubj)
+    sumComb$se[is.na(sumComb$se)] <- 0
+    sumComb
+}
+# computes the proportion of different levels of 'grpStr' -- here, response types
+sumPFn <- function(ss, subjStr='subj', xStr, grpStr='resp'){
+    sumSubj <- ddply(ss, c(subjStr, xStr, grpStr), summarise, nm = length(subj), .drop=F)
+    sumGrp <- ddply(sumSubj, c(subjStr, xStr), summarise, tot=sum(nm))
+    sumSubj <- merge(sumSubj, sumGrp, by=c(subjStr,xStr))
+    sumSubj$pSubj <- with(sumSubj, nm/tot)
+    sumGrp <- ddply(sumSubj, c(xStr, grpStr), summarise,
+                  mn=mean(pSubj), se=sd(pSubj)/sqrt(length(subj)))
+    sumSubj <- rename(sumSubj, c(pSubj='mn'))
+    sumSubj$se <- 0
+    sumGrp$subj <- 'average'
+    sumComb <- rbind(sumGrp, sumSubj[,c(subjStr,xStr,grpStr,'mn','se')])
     sumComb$se[is.na(sumComb$se)] <- 0
     sumComb
 }
@@ -100,13 +155,16 @@ for(curSess in allDirs){
 ds <- df #[colsOfInt]
 ds <- rename(ds, c(participant='subj', session='sess', tOffL='tDelayL', 
                    tOffR='tDelayR'))
+ds$subj <- as.factor(ds$subj)
 # Size conversions:
-ds$ringSzDeg <- round((ds$ringSz+32)/35,1)
-ds$ringSzP <- round(ds$ringSzDeg/max(ds$ringSzDeg),2)
+# ds$ringSzDeg <- round((ds$ringSz+32)/35,1)
+# ds$ringSzP <- round(ds$ringSzDeg/max(ds$ringSzDeg),2)
+ds$ringSzDeg <- (ds$ringSz+32)/35
+ds$ringSzP <- ds$ringSzDeg/max(ds$ringSzDeg)
 # The full-field should be coded as 'no center-surround', or 'no ring':
 ds$ring <- 0
 ds$ring[ds$ringSzP < 1] <- 1
-# tDelaySlow/fast
+# tDelaystat/dyna
 ds$tDelayStat <- 0
 ds$tDelayStat[ds$BvL==0.01] <- ds$tDelayL[ds$BvL==0.01]
 ds$tDelayStat[ds$BvR==0.01] <- ds$tDelayR[ds$BvR==0.01]
@@ -118,17 +176,17 @@ head(ds)
 
 # Types of responses
 ```{r}
-# noDir, fastDir, slowDir, transparent
-ds$slow <- 0
-ds$slow[ds$nf270==1] <- 1
-ds$fast <- 0
-ds$fast[ds$nf180==1] <- 1
+# noDir, fastDir, statDir, transparent
+ds$stat <- 0
+ds$stat[ds$nf270==1] <- 1
+ds$dyna <- 0
+ds$dyna[ds$nf180==1] <- 1
 ds$patchy <- 0
 ds$patchy[ds$nf090==1] <- 1
 ds$transp <- 0
 ds$transp[ds$nf000==1] <- 1
-ds$resp[ds$slow==1] <- 'static'
-ds$resp[ds$fast==1] <- 'dynamic'
+ds$resp[ds$stat==1] <- 'static'
+ds$resp[ds$dyna==1] <- 'dynamic'
 ds$resp[ds$patchy==1] <- 'patchy'
 ds$resp[ds$transp==1] <- 'transparent'
 ds$resp <- factor(ds$resp, levels = c('static','dynamic','patchy','transparent'))
@@ -138,127 +196,105 @@ head(ds)
 ## Static delay
 ```{r}
 ss <- ds[ds$tDelayDyna==0,]
-respStatSubj <- ddply(ss, .(subj, tDelayStat, resp), summarise, 
-                      numSubjResp = length(subj))
-respStat <- ddply(respStatSubj, .(tDelayStat, subj), summarise, 
-                  totResp = sum(numSubjResp))
-respStatSubj <- merge(respStatSubj, respStat, by=c('subj','tDelayStat'))
-respStatSubj$pSubjResp <- with(respStatSubj, numSubjResp/totResp)
-respStat <- ddply(respStatSubj, .(tDelayStat, resp), summarise,
-                  pResp = mean(pSubjResp), seResp=sd(pSubjResp)/sqrt(length(subj)))
-respStat$tDelayStat <- round(respStat$tDelayStat,1)
-# respStat$tDelayStat <- as.factor(respStat$tDelayStat)
-head(respStat)
+sumSs <- sumPFn(ss, xStr='tDelayStat')
+sumSsAve <- sumSs[sumSs$subj=='average',]
+pStat <- plotAve(pss=sumSsAve, xStr='tDelayStat', xlab=xLabStat)
+pStatIndiv <- plotIndiv(pss=sumSs, xStr='tDelayStat', xlab=xLabStat)
+ddply(sumSsAve, .(resp), summarize, respMean=round(mean(mn),2), respSD=round(sd(mn),2))
 ```
 
+### stat dom ~ static delay
 ```{r}
-# merging two datasets:
-respStat$subj <- 'average'
-respStatSubj$pResp <- respStatSubj$pSubjResp
-respStatSubj$seResp <- NA
-respStatComb <- rbind(respStat,respStatSubj[,c('subj','tDelayStat','resp','pResp','seResp')])
+m <- lmer(stat ~ tDelayStat + (1|subj), data=ss)
+summary(m)
+anova(m)
+summary(lm(stat ~ tDelayStat, data=ss))
+bfBase <- lmBF(stat ~ subj, data=ss, whichRandom = 'subj')
+bfSz <- lmBF(stat ~ tDelayStat + subj, data=ss, whichRandom='subj')
+as.vector(bfSz / bfBase)
 ```
 
-```{r, fig.height=3, fig.width=5}
-p <- ggplot(respStat, aes(x=tDelayStat, y=pResp, colour=resp, group=resp,
-                        ymin=pResp-seResp, ymax=pResp+seResp)) +
-    geom_point(position=dodge, size=1, alpha=alpha) +
-    geom_line(position=dodge, alpha=alpha) +
-    geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
-    labs(x='Static Stimulus Delay (s)',
-         y='Proportion of Trials', colour='Response\nType') + ylim(0,1) +
-    guides(colour=guide_legend(keyheight=.3, default.unit='inch'))
-p <- themefy(p)
-pStat <- p + ggtitle('a') + theme(legend.position='none')
-# if(!out){plot(p)}else{png('mc_ct-relT_respStat.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
+### dyna dom ~ static delay
+```{r}
+m <- lmer(dyna ~ tDelayStat + (1|subj), data=ss)
+summary(m)
+anova(m)
+summary(lm(dyna ~ tDelayStat, data=ss))
+bfBase <- lmBF(dyna ~ subj, data=ss, whichRandom = 'subj')
+bfSz <- lmBF(dyna ~ tDelayStat + subj, data=ss, whichRandom='subj')
+as.vector(bfSz / bfBase)
 ```
 
-### Individual data
-```{r, fig.height=2.1, fig.width=7}
-p <- ggplot(respStatComb, aes(x=as.numeric(tDelayStat), y=pResp, colour=resp, group=resp, #)) +
-                        ymin=pResp-seResp, ymax=pResp+seResp)) +
-    facet_grid(. ~ factor(subj)) +
-    geom_point(position=dodge, size=1, alpha=alpha) +
-    geom_line(position=dodge, alpha=alpha) +
-    geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
-    scale_x_continuous(breaks=c(0,.2,.4,.6,.8,1), labels=c('0','','','','','1'), limits=c(0,1)) +
-    scale_y_continuous(breaks=c(0,.25,.5,.75,1), labels=c('0','','0.5','','1')) +
-    labs(x='Static Stimulus Delay (s)',
-         y='Proportion of Trials', colour='Response\nType') + #ylim(0,1) +
-    guides(colour=guide_legend(keyheight=.3, default.unit='inch'))
-p <- themefy(p)
-pDynaIndiv <- p + ggtitle('a') + theme(legend.position='none')
-# if(!out){plot(p)}else{png('mc_ct-relT_respStat_indiv.png', width=7, height=2.1, units='in', res=600); plot(p); dev.off()}
+### patchy dom ~ patchy delay
+```{r}
+m <- lmer(patchy ~ tDelayStat + (1|subj), data=ss)
+summary(m)
+anova(m)
+summary(lm(patchy ~ tDelayStat, data=ss))
+bfBase <- lmBF(patchy ~ subj, data=ss, whichRandom = 'subj')
+bfSz <- lmBF(patchy ~ tDelayStat + subj, data=ss, whichRandom='subj')
+as.vector(bfSz / bfBase)
 ```
 
 ## Dynamic delay
 ```{r}
 ss <- ds[ds$tDelayStat==0,]
-respDynaSubj <- ddply(ss, .(subj, tDelayDyna, resp), summarise, numSubjResp = length(subj))
-respDyna <- ddply(respDynaSubj, .(tDelayDyna, subj), summarise, totResp = sum(numSubjResp))
-respDynaSubj <- merge(respDynaSubj, respDyna, by=c('subj','tDelayDyna'))
-respDynaSubj$pSubjResp <- with(respDynaSubj, numSubjResp/totResp)
-respDyna <- ddply(respDynaSubj, .(tDelayDyna, resp), summarise,
-                  pResp = mean(pSubjResp), seResp=sd(pSubjResp)/sqrt(length(subj)))
-respDyna$tDelayDyna <- round(respDyna$tDelayDyna,1)
-# respDyna$tDelayDyna <- as.factor(respDyna$tDelayDyna)
-head(respDyna)
+sumSs <- sumPFn(ss, xStr='tDelayDyna')
+sumSsAve <- sumSs[sumSs$subj=='average',]
+pDyna <- plotAve(pss=sumSsAve, xStr='tDelayDyna', xlab=xLabDyna)
+pDynaIndiv <- plotIndiv(pss=sumSs, xStr='tDelayDyna', xlab=xLabDyna)
+ddply(sumSsAve, .(resp), summarize, respMean=round(mean(mn),2), respSD=round(sd(mn),2))
 ```
 
+### stat dom ~ dynamic delay
 ```{r}
-# merging two datasets:
-respDyna$subj <- 'average'
-respDynaSubj$pResp <- respDynaSubj$pSubjResp
-respDynaSubj$seResp <- NA
-respDynaComb <- rbind(respDyna,respDynaSubj[,c('subj','tDelayDyna','resp','pResp','seResp')])
+m <- lmer(stat ~ tDelayDyna + (1|subj), data=ss)
+summary(m)
+anova(m)
+summary(lm(stat ~ tDelayDyna, data=ss))
+bfBase <- lmBF(stat ~ subj, data=ss, whichRandom = 'subj')
+bfSz <- lmBF(stat ~ tDelayDyna + subj, data=ss, whichRandom='subj')
+as.vector(bfSz / bfBase)
 ```
 
-```{r, fig.height=3, fig.width=5}
-p <- ggplot(respDyna, aes(x=tDelayDyna, y=pResp, colour=resp, group=resp,
-                        ymin=pResp-seResp, ymax=pResp+seResp)) +
-    geom_point(position=dodge, size=1, alpha=alpha) +
-    geom_line(position=dodge, alpha=alpha) +
-    geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
-    labs(x='Dynamic Stimulus Delay (s)',
-         y='Proportion of Trials', colour='Response\nType') + ylim(0,1) +
-    guides(colour=guide_legend(keyheight=.3, default.unit='inch'))
-p <- themefy(p)
-pDyna <- p + ggtitle('b')
-# if(!out){plot(p)}else{png('mc_ct-relT_respDyna.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
+### dyna dom ~ dynamic delay
+```{r}
+m <- lmer(dyna ~ tDelayDyna + (1|subj), data=ss)
+summary(m)
+anova(m)
+summary(lm(dyna ~ tDelayDyna, data=ss))
+bfBase <- lmBF(dyna ~ subj, data=ss, whichRandom = 'subj')
+bfSz <- lmBF(dyna ~ tDelayDyna + subj, data=ss, whichRandom='subj')
+as.vector(bfSz / bfBase)
 ```
 
-### Individual data
-```{r, fig.height=2.1, fig.width=7}
-p <- ggplot(respDynaComb, aes(x=tDelayDyna, y=pResp, colour=resp, group=resp, #)) +
-                        ymin=pResp-seResp, ymax=pResp+seResp)) +
-    facet_grid(. ~ subj) +
-    geom_point(position=dodge, size=1, alpha=alpha) +
-    geom_line(position=dodge, alpha=alpha) +
-    geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
-    scale_x_continuous(breaks=c(0,.2,.4,.6,.8,1), labels=c('0','','','','','1'), limits=c(0,1)) +
-    scale_y_continuous(breaks=c(0,.25,.5,.75,1), labels=c('0','','0.5','','1')) +
-    labs(x='Dynamic Stimulus Delay (s)',
-         y='Proportion of Trials', colour='Response Type') + #ylim(0,1) +
-    guides(colour=guide_legend(keyheight=.3, default.unit='inch'))
-p <- themefy(p)
-pStatIndiv <- p + ggtitle('b') + theme(legend.position='bottom')
-# if(!out){plot(p)}else{png('mc_ct-relT_respDyna_indiv.png', width=7, height=2.1, units='in', res=600); plot(p); dev.off()}
+### patchy dom ~ dynamic delay
+```{r}
+m <- lmer(patchy ~ tDelayDyna + (1|subj), data=ss)
+summary(m)
+anova(m)
+summary(lm(patchy ~ tDelayDyna, data=ss))
+bfBase <- lmBF(patchy ~ subj, data=ss, whichRandom = 'subj')
+bfSz <- lmBF(patchy ~ tDelayDyna + subj, data=ss, whichRandom='subj')
+as.vector(bfSz / bfBase)
 ```
-
 
 ## Combined plots
 
 ### Response type (Fig.4)
-```{r, fig.height=2.1, fig.width=7}
+```{r, fig.height=3, fig.width=9}
 if(out){jpeg('mc_ct-rT_respType_fig4.jpg', width=7, height=2.1, units='in', res=600)}
-grid.arrange(pStat, pDyna, ncol=2, widths=c(2.21/5,2.79/5))
+grid.arrange(pStat + ggtitle('a') + theme(legend.position='none'),
+             pDyna + ggtitle('b'), ncol=2, widths=c(2.21/5,2.79/5))
 if(out){dev.off()}
 ```
 
 ### Individual data (SF.5)
-```{r, fig.height=2.1, fig.width=7}
+```{r, fig.height=5, fig.width=9}
 if(out){jpeg('mc_ct-rT_respType_sf5.jpg', width=7, height=4.2, units='in', res=600)}
-grid.arrange(pDynaIndiv, pStatIndiv, nrow=2, heights=c(2.22/5,2.78/5))
+grid.arrange(pStatIndiv + ggtitle('a') + theme(legend.position='none'),
+             pDynaIndiv + ggtitle('b') + theme(legend.position='bottom'), 
+             nrow=2, heights=c(2.22/5,2.78/5))
 if(out){dev.off()}
 ```
 
@@ -268,195 +304,122 @@ if(out){dev.off()}
 ```{r}
 ss <- ds[ds$tDelayDyna==0,]
 ss$y <- ss$ringSzP
-sumSs <- sumFn(ss, 'subj', 'tDelayStat', 'resp')
+sumSs <- sumFn(ss, xStr='tDelayStat')
+sumSsAve <- sumSs[sumSs$subj=='average',]
+pStatSz <- plotAve(pss=sumSsAve, xStr='tDelayStat', xlab=xLabStat, ylab=yLabSz)
+pStatIndivSz <- plotIndiv(pss=sumSs, xStr='tDelayStat', xlab=xLabStat, ylab=yLabSz)
+ddply(sumSsAve, .(resp), summarize, respMean=round(mean(mn),2), respSD=round(sd(mn),2))
 ```
 
+### center size ~ static delay
 ```{r}
-# merging two datasets:
-sumRingSzP$subj <- 'average'
-sumRingSzPSubj <- rename(sumRingSzPSubj, c(ringSzPSubj='ringSzP', ringSzPSubjSe='ringSzPSe'))
-szStatComb <- rbind(sumRingSzP,sumRingSzPSubj[,c('subj','tDelayStat','resp','ringSzP','ringSzPSe')])
-```
-
-```{r, fig.height=3, fig.width=5}
-p <- ggplot(sumRingSzP, aes(x=tDelayStat, y=ringSzP, colour=resp, group=resp,
-                        ymin=ringSzP-ringSzPSe, ymax=ringSzP+ringSzPSe)) +
-    geom_point(position=dodge, size=1, alpha=alpha) +
-    geom_line(position=dodge, alpha=alpha) +
-    geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
-    labs(x='Static Stimulus Delay (s)',
-         y='Center/Stimulus Size',
-         colour='Response\nType') + ylim(0,1) +
-    guides(colour=guide_legend(keyheight=.3, default.unit='inch'))
-p <- themefy(p)
-if(!out){plot(p)}else{png('mc_ct-tRel_ringSzStat.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
-```
-
-### Individual data
-```{r, fig.height=2.1, fig.width=7}
-p <- ggplot(szStatComb, aes(x=tDelayStat, y=ringSzP, colour=resp, group=resp,
-                        ymin=ringSzP-ringSzPSe, 
-                        ymax=ringSzP+ringSzPSe)) +
-    facet_grid(. ~ subj) +
-    geom_point(position=dodge, size=1, alpha=alpha) +
-    geom_line(position=dodge, alpha=alpha) +
-    geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
-    scale_x_continuous(breaks=c(0,.5,1), labels=c('0','0.5','1'), limits=c(0,1)) + 
-    labs(x='Static Stimulus Delay (s)',
-         y='Center/Stimulus Size', colour='Response\nType') + ylim(0,1) +
-    guides(colour=guide_legend(keyheight=.3, default.unit='inch'))
-p <- themefy(p)
-if(!out){plot(p)}else{png('mc_ct-relT_respSzStat_indiv.png', width=7, height=2.1, units='in', res=600); plot(p); dev.off()}
+ss <- ss[ss$resp=='static',]
+summary(lmer(ringSzP ~ tDelayStat + (1|subj), data=ss))
+summary(lm(ringSzP ~ tDelayStat, data=ss))
+bfBase <- lmBF(ringSzP ~ subj, data=ss, whichRandom = 'subj')
+bfSz <- lmBF(ringSzP ~ tDelayStat + subj, data=ss, whichRandom='subj')
+as.vector(bfSz / bfBase)
 ```
 
 ## Dynamic delay
 ```{r}
 ss <- ds[ds$tDelayStat==0,]
-sumRingSzPSubj <- ddply(ss, .(subj, tDelayDyna, resp), summarise,
-                       ringSzPSubj = mean(ringSzP),
-                       ringSzPSubjSe = sd(ringSzP)/sqrt(length(ringSzP)))
-sumRingSzP <- ddply(sumRingSzPSubj, .(resp, tDelayDyna), summarise,
-                  ringSzP = mean(ringSzPSubj), 
-                  ringSzPSe = sd(ringSzPSubj)/sqrt(length(subj)))
-sumRingSzP$tDelayDyna <- round(sumRingSzP$tDelayDyna,1)
-sumRingSzP$tDelayDyna <- as.factor(sumRingSzP$tDelayDyna)
-sumRingSzPSubj$ringSzPSubjSe[is.na(sumRingSzPSubj$ringSzPSubjSe)] <- 0
-head(sumRingSzP)
+ss$y <- ss$ringSzP
+sumSs <- sumFn(ss, xStr='tDelayDyna')
+sumSsAve <- sumSs[sumSs$subj=='average',]
+pDynaSz <- plotAve(pss=sumSsAve, xStr='tDelayDyna', xlab=xLabDyna, ylab=yLabSz)
+pDynaIndivSz <- plotIndiv(pss=sumSs, xStr='tDelayDyna', xlab=xLabDyna, ylab=yLabSz)
+ddply(sumSsAve, .(resp), summarize, respMean=round(mean(mn),2), respSD=round(sd(mn),2))
 ```
 
-```{r, fig.height=3, fig.width=5}
-p <- ggplot(sumRingSzP, aes(x=tDelayDyna, y=ringSzP, colour=resp, group=resp,
-                        ymin=ringSzP-ringSzPSe, ymax=ringSzP+ringSzPSe)) +
-    geom_point(position=dodge, size=1, alpha=alpha) +
-    geom_line(position=dodge, alpha=alpha) +
-    geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
-    labs(x='Dynamic Stimulus Delay (s)',
-         y='Center/Stimulus Size',
-         colour='Response\nType') + ylim(0,1) +
-    guides(colour=guide_legend(keyheight=.3, default.unit='inch'))
-p <- themefy(p)
-if(!out){plot(p)}else{png('mc_ct-tRel_ringSzDyna.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
+### center size ~ dynamic delay
+```{r}
+ss <- ss[ss$resp=='static',]
+summary(lmer(ringSzP ~ tDelayDyna + (1|subj), data=ss))
+summary(lm(ringSzP ~ tDelayDyna, data=ss))
+bfBase <- lmBF(ringSzP ~ subj, data=ss, whichRandom = 'subj')
+bfSz <- lmBF(ringSzP ~ tDelayDyna + subj, data=ss, whichRandom='subj')
+as.vector(bfSz / bfBase)
+```
+
+## Combined plots
+
+### Average data
+```{r, fig.height=3, fig.width=9}
+if(out){jpeg('mc_ct-rT_sz.jpg', width=7, height=2.1, units='in', res=600)}
+grid.arrange(pStatSz + ggtitle('a') + theme(legend.position='none'),
+             pDynaSz + ggtitle('b'), ncol=2, widths=c(2.21/5,2.79/5))
+if(out){dev.off()}
 ```
 
 ### Individual data
-```{r, fig.height=2.1, fig.width=7}
-p <- ggplot(sumRingSzPSubj, aes(x=tDelayDyna, y=ringSzPSubj, colour=resp, group=resp,
-                        ymin=ringSzPSubj-ringSzPSubjSe, 
-                        ymax=ringSzPSubj+ringSzPSubjSe)) +
-    facet_grid(. ~ subj) + 
-    geom_point(position=dodge, size=1, alpha=alpha) +
-    geom_line(position=dodge, alpha=alpha) +
-    geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
-    scale_x_continuous(breaks=c(0,.5,1), labels=c('0','0.5','1'), limits=c(0,1)) + 
-    labs(x='Dynamic Stimulus Delay (s)',
-         y='Center/Stimulus Size', colour='Response\nType') + ylim(0,1) +
-    guides(colour=guide_legend(keyheight=.3, default.unit='inch'))
-p <- themefy(p)
-if(!out){plot(p)}else{png('mc_ct-relT_respSzDyna_indiv.png', width=7, height=2.1, units='in', res=600); plot(p); dev.off()}
+```{r, fig.height=5, fig.width=9}
+if(out){jpeg('mc_ct-rT_sz_indiv.jpg', width=7, height=4.2, units='in', res=600)}
+grid.arrange(pStatIndivSz + ggtitle('a') + theme(legend.position='none'),
+             pDynaIndivSz + ggtitle('b') + theme(legend.position='bottom'), 
+             nrow=2, heights=c(2.22/5,2.78/5))
+if(out){dev.off()}
 ```
 
-# Proportion center/surround (inset)
+# Center/surround
 
 ## Static delay
 ```{r}
 ss <- ds[ds$tDelayDyna==0,]
-sumRingPSubj <- ddply(ss, .(subj, tDelayStat, resp), summarise,
-                       ringPSubj = mean(ring),
-                       ringPSubjSe = sd(ring)/sqrt(length(ring)))
-sumRingP <- ddply(sumRingPSubj, .(resp, tDelayStat), summarise,
-                  ringP = mean(ringPSubj), 
-                  ringPSe = sd(ringPSubj)/sqrt(length(subj)))
-sumRingP$tDelayStat <- as.factor(sumRingP$tDelayStat)
-sumRingPSubj$ringPSubjSe[is.na(sumRingPSubj$ringPSubjSe)] <- 0
-#head(sumRingP)
-sumRingP
-paste('mean proportion CS =', as.character(mean(sumRingP$ringP[sumRingP$resp=='static'])))
+ss$y <- ss$ring
+sumSs <- sumFn(ss, xStr='tDelayStat')
+sumSsAve <- sumSs[sumSs$subj=='average',]
+pStatCS <- plotAve(pss=sumSsAve, xStr='tDelayStat', xlab=xLabStat, ylab=yLabCS)
+pStatIndivCS <- plotIndiv(pss=sumSs, xStr='tDelayStat', xlab=xLabStat, ylab=yLabCS)
+ddply(sumSsAve, .(resp), summarize, respMean=round(mean(mn),2), respSD=round(sd(mn),2))
 ```
 
-```{r, fig.height=3, fig.width=5}
-p <- ggplot(sumRingP, aes(x=tDelayStat, y=ringP, colour=resp, group=resp,
-                        ymin=ringP-ringPSe, ymax=ringP+ringPSe)) +
-    geom_point(position=dodge, size=.5, alpha=alpha, show.legend = F) +
-    geom_line(position=dodge, alpha=alpha, show.legend = F) +
-    geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
-    scale_y_continuous(breaks=c(0,.5,1), limits=c(0,1)) + 
-    theme_bw() + theme(panel.grid.minor.x=element_blank(), panel.grid.minor.y=element_blank(),
-        axis.text.x = element_blank(), axis.title=element_blank(),
-        legend.text = element_blank(), legend.title=element_blank(),
-        legend.key = element_blank())
-if(!out){plot(p)}else{png('mc_ct-tRel_ringPstat_inset.png', width=.8, height=.6, units='in', res=600); plot(p); dev.off()}
-```
-
-### Individual data
-```{r, fig.height=2.1, fig.width=7}
-p <- ggplot(sumRingPSubj, aes(x=tDelayStat, y=ringPSubj, colour=resp, group=resp,
-                        ymin=ringPSubj-ringPSubjSe, 
-                        ymax=ringPSubj+ringPSubjSe)) +
-    facet_grid(. ~ subj) +
-    geom_point(position=dodge, size=1, alpha=alpha) +
-    geom_line(position=dodge, alpha=alpha) +
-    geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
-    scale_x_continuous(breaks=c(0,.5,1), labels=c('0','0.5','1'), limits=c(0,1)) + 
-    labs(x='Static Stimulus Delay (s)',
-         y='Proportion Center-Surround', colour='Response\nType') + ylim(0,1) +
-    guides(colour=guide_legend(keyheight=.3, default.unit='inch'))
-p <- themefy(p)
-if(!out){plot(p)}else{png('mc_ct-relT_respCSStat_indiv.png', width=7, height=2.1, units='in', res=600); plot(p); dev.off()}
-# if(out){png('mc_ct-relT_respCSStat_indiv_lowres.png', width=7, height=2.1, units='in', res=150); plot(p); dev.off()}
+### center/surround ~ static delay
+```{r}
+ss <- ss[ss$resp=='static',]
+summary(lmer(ring ~ tDelayStat + (1|subj), data=ss))
+summary(lm(ring ~ tDelayStat, data=ss))
+bfBase <- lmBF(ring ~ subj, data=ss, whichRandom = 'subj')
+bfSz <- lmBF(ring ~ tDelayStat + subj, data=ss, whichRandom='subj')
+as.vector(bfSz / bfBase)
 ```
 
 ## Dynamic delay
 ```{r}
 ss <- ds[ds$tDelayStat==0,]
-sumRingPSubj <- ddply(ss, .(subj, tDelayDyna, resp), summarise,
-                       ringPSubj = mean(ring),
-                       ringPSubjSe = sd(ring)/sqrt(length(ring)))
-sumRingP <- ddply(sumRingPSubj, .(resp, tDelayDyna), summarise,
-                  ringP = mean(ringPSubj), 
-                  ringPSe = sd(ringPSubj)/sqrt(length(subj)))
-sumRingP$tDelayDyna <- as.factor(sumRingP$tDelayDyna)
-sumRingPSubj$ringPSubjSe[is.na(sumRingPSubj$ringPSubjSe)] <- 0
-# head(sumRingP)
-sumRingP
+ss$y <- ss$ring
+sumSs <- sumFn(ss, xStr='tDelayDyna')
+sumSsAve <- sumSs[sumSs$subj=='average',]
+pDynaCS <- plotAve(pss=sumSsAve, xStr='tDelayDyna', xlab=xLabDyna, ylab=yLabCS)
+pDynaIndivCS <- plotIndiv(pss=sumSs, xStr='tDelayDyna', xlab=xLabDyna, ylab=yLabCS)
+ddply(sumSsAve, .(resp), summarize, respMean=round(mean(mn),2), respSD=round(sd(mn),2))
 ```
 
-```{r, fig.height=3, fig.width=5}
-p <- ggplot(sumRingP, aes(x=tDelayDyna, y=ringP, colour=resp, group=resp,
-                        ymin=ringP-ringPSe, ymax=ringP+ringPSe)) +
-    geom_point(position=dodge, size=.5, alpha=alpha, show.legend = F) +
-    geom_line(position=dodge, alpha=alpha, show.legend = F) +
-    geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
-    scale_y_continuous(breaks=c(0,.5,1), limits=c(0,1)) + 
-    theme_bw() + theme(panel.grid.minor.x=element_blank(), 
-                       panel.grid.minor.y=element_blank(),
-        axis.text.x = element_blank(), axis.title=element_blank(),
-        legend.text = element_blank(), legend.title=element_blank(),
-        legend.key = element_blank(), plot.background=element_rect(fill='grey'),
-        axis.text.y = element_text(size=6))
-if(!out){plot(p)}else{png('mc_ct-tRel_ringPdyna_inset.png', width=.8, height=.6, units='in', res=600); plot(p); dev.off()}
+### center/surround ~ dynamic delay
+```{r}
+ss <- ss[ss$resp=='static',]
+summary(lmer(ring ~ tDelayDyna + (1|subj), data=ss))
+summary(lm(ring ~ tDelayDyna, data=ss))
+bfBase <- lmBF(ring ~ subj, data=ss, whichRandom = 'subj')
+bfSz <- lmBF(ring ~ tDelayDyna + subj, data=ss, whichRandom='subj')
+as.vector(bfSz / bfBase)
+```
+
+## Combined plots
+
+### Average data
+```{r, fig.height=3, fig.width=9}
+if(out){jpeg('mc_ct-rT_cs.jpg', width=7, height=2.1, units='in', res=600)}
+grid.arrange(pStatCS + ggtitle('a') + theme(legend.position='none'),
+             pDynaCS + ggtitle('b'), ncol=2, widths=c(2.21/5,2.79/5))
+if(out){dev.off()}
 ```
 
 ### Individual data
-```{r, fig.height=2.1, fig.width=7}
-p <- ggplot(sumRingPSubj, aes(x=tDelayDyna, y=ringPSubj, colour=resp, group=resp,
-                        ymin=ringPSubj-ringPSubjSe, 
-                        ymax=ringPSubj+ringPSubjSe)) +
-    facet_grid(. ~ subj) +
-    geom_point(position=dodge, size=1, alpha=alpha) +
-    geom_line(position=dodge, alpha=alpha) +
-    geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
-    scale_x_continuous(breaks=c(0,.5,1), labels=c('0','0.5','1'), limits=c(0,1)) + 
-    labs(x='Dynamic Stimulus Delay (s)',
-         y='Proportion Center-Surround', colour='Response\nType') + ylim(0,1) +
-    guides(colour=guide_legend(keyheight=.3, default.unit='inch'))
-p <- themefy(p)
-if(!out){plot(p)}else{png('mc_ct-relT_respCSStat_indiv.png', width=7, height=2.1, units='in', res=600); plot(p); dev.off()}
-```
-
-# Analyses
-```{r}
-# Analysis
-#library(lme4)
-#library(lmerTest)
-source(paste(db, 'Prog/R/myFunctions/pvalfn.R', sep=''))
+```{r, fig.height=5, fig.width=9}
+if(out){jpeg('mc_ct-rT_cs_indiv.jpg', width=7, height=4.2, units='in', res=600)}
+grid.arrange(pStatIndivCS + ggtitle('a') + theme(legend.position='none'),
+             pDynaIndivCS + ggtitle('b') + theme(legend.position='bottom'), 
+             nrow=2, heights=c(2.22/5,2.78/5))
+if(out){dev.off()}
 ```

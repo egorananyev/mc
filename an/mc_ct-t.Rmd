@@ -46,20 +46,90 @@ allDirs <- allDirs[grep(paste(expt,'_p',sep=''), allDirs)]
 ```
 
 ## Plot variables
-```{r, message=FALSE, warning=FALSE}
-# theme for plotting:
+```{r}
 dodge <- position_dodge(width=0)
 alpha <- .8
+cc <- c('#a6cee3','#1f78b4','#b2df8a','#33a02c','#fb9a99','#e31a1c','#fdbf6f')
+xLab <- 'Trial Duration'
+yLab <- 'Proportion of Trials'
+yLabSz <- 'Center/Stimulus Size'
+yLabCS <- 'Proportion Center-Surround'
+colLab <- 'Response\nType'
+colLab2 <- 'Response Type' # for use in indiv plots where col label is along the bottom
+```
+
+## Plot functions
+```{r, message=FALSE, warning=FALSE}
+# theme for plotting:
 themefy <- function(p) {
     p <- p + theme_bw() + 
          theme(panel.grid.minor.x=element_blank(), panel.grid.minor.y=element_blank(),
             axis.text=element_text(size=8), axis.title=element_text(size=9),
             legend.text=element_text(size=8), legend.title=element_text(size=9),
-            legend.key = element_blank(), legend.margin=unit(-.04, 'in'),
+            legend.key = element_blank(), legend.margin=margin(t=-.04, unit='in'),
             legend.background = element_rect(fill='transparent'),
             plot.title=element_text(face='bold'))
 }
-cc <- c('#a6cee3','#1f78b4','#b2df8a','#33a02c','#fb9a99','#e31a1c','#fdbf6f')
+plotAve <- function(pss, subjStr='subj', xStr, grpStr='resp', 
+                    xlab, ylab=yLab, collab=colLab, yStr='mn', seStr='se'){
+    pss$yMin <- pss[,yStr] - pss[,seStr]
+    pss$yMax <- pss[,yStr] + pss[,seStr]
+    p <- ggplot(pss, aes_string(x=xStr, y=yStr, colour=grpStr, group=grpStr,
+                            ymin='yMin', ymax='yMax')) +
+        geom_point(position=dodge, size=1, alpha=alpha) + geom_line(position=dodge, alpha=alpha) +
+        scale_x_continuous(breaks=c(0,.2,.4,.6,.8,1), labels=c('0','0.2','0.4','0.6','0.8','1')) +
+        geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
+        labs(x=xlab, y=ylab, colour=collab) +  ylim(0,1) + 
+        guides(colour=guide_legend(keyheight=.3, default.unit='inch'))
+    p <- themefy(p)
+}
+plotIndiv <- function(pss, subjStr='subj', xStr, grpStr='resp', 
+                    xlab, ylab=yLab, collab=colLab2, yStr='mn', seStr='se'){
+    pss$yMin <- pss[,yStr] - pss[,seStr]
+    pss$yMax <- pss[,yStr] + pss[,seStr]
+    p <- ggplot(pss, aes_string(x=xStr, y=yStr, colour=grpStr, group=grpStr,
+                            ymin='yMin', ymax='yMax')) + 
+        facet_grid(paste('.~factor(', subjStr, ')', sep='')) +
+        geom_point(position=dodge, size=1, alpha=alpha) + geom_line(position=dodge, alpha=alpha) +
+        geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
+        scale_x_continuous(breaks=c(0,.2,.4,.6,.8,1), labels=c('0','','','','','1'), limits=c(0,1))+
+        scale_y_continuous(breaks=c(0,.25,.5,.75,1), labels=c('0','','0.5','','1'), limits=c(0,1)) +
+        labs(x=xlab, y=ylab, colour=collab) + 
+        guides(colour=guide_legend(keyheight=.3, default.unit='inch'))
+    p <- themefy(p)
+}
+```
+
+## Summary functions
+```{r}
+# computes individual and group means and SDs; req's y to be the var of interest
+sumFn <- function(ss, subjStr='subj', xStr, grpStr='resp'){
+    sumSubj <- ddply(ss, c(subjStr, xStr, grpStr), summarise,
+                     mnS=mean(y), se=sd(y)/sqrt(length(y))) #, .drop=F)
+    # sumSubj$mnS[is.na(sumSubj$mnS)] <- 0
+    sumGrp <- ddply(sumSubj, c(xStr, grpStr), summarise,
+                  mn=mean(mnS), se=sd(mnS)/sqrt(length(mnS)))
+    sumGrp$subj <- 'average'
+    sumSubj <- rename(sumSubj, c(mnS='mn'))
+    sumComb <- rbind(sumGrp, sumSubj)
+    sumComb$se[is.na(sumComb$se)] <- 0
+    sumComb
+}
+# computes the proportion of different levels of 'grpStr' -- here, response types
+sumPFn <- function(ss, subjStr='subj', xStr, grpStr='resp'){
+    sumSubj <- ddply(ss, c(subjStr, xStr, grpStr), summarise, nm = length(subj), .drop=F)
+    sumGrp <- ddply(sumSubj, c(subjStr, xStr), summarise, tot=sum(nm))
+    sumSubj <- merge(sumSubj, sumGrp, by=c(subjStr,xStr))
+    sumSubj$pSubj <- with(sumSubj, nm/tot)
+    sumGrp <- ddply(sumSubj, c(xStr, grpStr), summarise,
+                  mn=mean(pSubj), se=sd(pSubj)/sqrt(length(subj)))
+    sumSubj <- rename(sumSubj, c(pSubj='mn'))
+    sumSubj$se <- 0
+    sumGrp$subj <- 'average'
+    sumComb <- rbind(sumGrp, sumSubj[,c(subjStr,xStr,grpStr,'mn','se')])
+    sumComb$se[is.na(sumComb$se)] <- 0
+    sumComb
+}
 ```
 
 ## Loading the data
