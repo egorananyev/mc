@@ -856,7 +856,7 @@ grid.arrange(pCSmin, pCSmax, ncol=2, widths=c(2.5/5,2.5/5))
 
 ## BF analysis
 ```{r}
-ss <- ds[ds$resp=='no direction',]
+ss <- ds[ds$slow==1,]
 ss <- ss[!is.na(ss$ring),]
 summary(glmer(ring ~ vMin * vMax + (1|subj), data=ss, family='binomial'))
 bfVmin <- lmBF(ring ~ vMin + subj, data=ss, whichRandom = 'subj')
@@ -868,7 +868,7 @@ print(paste('vMin:', as.vector(bfSum / bfVmax)))
 print(paste('interaction:', as.vector(bfInt / bfSum)))
 ```
 
-## Center size: Proportion of ring size
+# Center size
 ```{r}
 sumRingSzPSubj <- ddply(ds[ds$resp=='no direction' & ds$ring==1,], .(subj, vMin, vMax), summarise,
                        ringSzPSubj = mean(ringSzP), ringN = sum(ring))
@@ -925,10 +925,12 @@ p <- themefy(p)
 if(!out){plot(p)}else{png('mc_ct-v_ringSzPVmax.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
 ```
 
+## BF analyses
 ```{r}
-ss <- ds[ds$resp=='no direction' & ds$ring==1,]
+ss <- ds[ds$slow==1 & ds$ring==1,]
 ss <- ss[!is.na(ss$ring),]
-summary(glmer(ringSzP ~ vMin * vMax + (1|subj), data=ss, family='binomial'))
+summary(lmer(ringSzP ~ vMin * vMax + (1|subj), data=ss))
+summary(lm(ringSzP ~ vMin * vMax, data=ss))
 bfVmin <- lmBF(ringSzP ~ vMin + subj, data=ss, whichRandom = 'subj')
 bfVmax <- lmBF(ringSzP ~ vMax + subj, data=ss, whichRandom = 'subj')
 bfSum <- lmBF(ringSzP ~ vMin + vMax + subj, data=ss, whichRandom = 'subj')

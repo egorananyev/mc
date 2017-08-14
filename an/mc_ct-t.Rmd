@@ -51,6 +51,7 @@ dodge <- position_dodge(width=0)
 alpha <- .8
 cc <- c('#a6cee3','#1f78b4','#b2df8a','#33a02c','#fb9a99','#e31a1c','#fdbf6f')
 xLab <- 'Trial Duration (s)'
+xVar <- 'trialT'
 yLab <- 'Proportion of Trials'
 yLabSz <- 'Center/Stimulus Size'
 yLabCS <- 'Proportion Center-Surround'
@@ -70,7 +71,7 @@ themefy <- function(p) {
             legend.background = element_rect(fill='transparent'),
             plot.title=element_text(face='bold'))
 }
-plotAve <- function(pss, subjStr='subj', xStr='trialT', grpStr='resp', 
+plotAve <- function(pss, subjStr='subj', xStr=xVar, grpStr='resp', 
                     xlab, ylab=yLab, collab=colLab, yStr='mn', seStr='se'){
     pss$yMin <- pss[,yStr] - pss[,seStr]
     pss$yMax <- pss[,yStr] + pss[,seStr]
@@ -84,7 +85,7 @@ plotAve <- function(pss, subjStr='subj', xStr='trialT', grpStr='resp',
         guides(colour=guide_legend(keyheight=.3, default.unit='inch'))
     p <- themefy(p)
 }
-plotIndiv <- function(pss, subjStr='subj', xStr='trialT', grpStr='resp', 
+plotIndiv <- function(pss, subjStr='subj', xStr=xVar, grpStr='resp', 
                     xlab, ylab=yLab, collab=colLab2, yStr='mn', seStr='se'){
     pss$yMin <- pss[,yStr] - pss[,seStr]
     pss$yMax <- pss[,yStr] + pss[,seStr]
@@ -101,7 +102,7 @@ plotIndiv <- function(pss, subjStr='subj', xStr='trialT', grpStr='resp',
         guides(colour=guide_legend(keyheight=.3, default.unit='inch'))
     p <- themefy(p)
 }
-plotInset <- function(pss, subjStr='subj', xStr='trialT', grpStr='resp', 
+plotInset <- function(pss, subjStr='subj', xStr=xVar, grpStr='resp', 
                     xlab, ylab=yLab, collab=colLab, yStr='mn', seStr='se'){
     pss$yMin <- pss[,yStr] - pss[,seStr]
     pss$yMax <- pss[,yStr] + pss[,seStr]
@@ -122,7 +123,7 @@ plotInset <- function(pss, subjStr='subj', xStr='trialT', grpStr='resp',
 ## Summary functions
 ```{r}
 # computes individual and group means and SDs; req's y to be the var of interest
-sumFn <- function(ss, subjStr='subj', xStr='trialT', grpStr='resp'){
+sumFn <- function(ss, subjStr='subj', xStr=xVar, grpStr='resp'){
     sumSubj <- ddply(ss, c(subjStr, xStr, grpStr), summarise,
                      mnS=mean(y), se=sd(y)/sqrt(length(y))) #, .drop=F)
     # sumSubj$mnS[is.na(sumSubj$mnS)] <- 0
@@ -135,7 +136,7 @@ sumFn <- function(ss, subjStr='subj', xStr='trialT', grpStr='resp'){
     sumComb
 }
 # computes the proportion of different levels of 'grpStr' -- here, response types
-sumPFn <- function(ss, subjStr='subj', xStr='trialT', grpStr='resp'){
+sumPFn <- function(ss, subjStr='subj', xStr=xVar, grpStr='resp'){
     sumSubj <- ddply(ss, c(subjStr, xStr, grpStr), summarise, nm = length(subj), .drop=F)
     sumGrp <- ddply(sumSubj, c(subjStr, xStr), summarise, tot=sum(nm))
     sumSubj <- merge(sumSubj, sumGrp, by=c(subjStr,xStr))
@@ -222,45 +223,33 @@ pRespIndiv
 if(out){dev.off()}
 ```
 
-## stat dom ~ static delay
+## stat dom ~ trial duration
 ```{r}
-m <- lmer(stat ~ trialT + (1|subj), data=ds)
-summary(m)
-anova(m)
-summary(lm(stat ~ trialT, data=ds))
+summary(glmer(stat ~ trialT + (1|subj), data=ds, family='binomial'))
 bfBase <- lmBF(stat ~ subj, data=ds, whichRandom = 'subj')
 bfSz <- lmBF(stat ~ trialT + subj, data=ds, whichRandom='subj')
 as.vector(bfSz / bfBase)
 ```
 
-## dyna dom ~ static delay
+## dyna dom ~ trial duration
 ```{r}
-m <- lmer(dyna ~ trialT + (1|subj), data=ds)
-summary(m)
-anova(m)
-summary(lm(dyna ~ trialT, data=ds))
+summary(glmer(dyna ~ trialT + (1|subj), data=ds, family='binomial'))
 bfBase <- lmBF(dyna ~ subj, data=ds, whichRandom = 'subj')
 bfSz <- lmBF(dyna ~ trialT + subj, data=ds, whichRandom='subj')
 as.vector(bfSz / bfBase)
 ```
 
-## patchy dom ~ patchy delay
+## patchy dom ~ trial duration
 ```{r}
-m <- lmer(patchy ~ trialT + (1|subj), data=ds)
-summary(m)
-anova(m)
-summary(lm(patchy ~ trialT, data=ds))
+summary(glmer(patchy ~ trialT + (1|subj), data=ds, family='binomial'))
 bfBase <- lmBF(patchy ~ subj, data=ds, whichRandom = 'subj')
 bfSz <- lmBF(patchy ~ trialT + subj, data=ds, whichRandom='subj')
 as.vector(bfSz / bfBase)
 ```
 
-## transparent dom ~ patchy delay
+## transparent dom ~ trial duration
 ```{r}
-m <- lmer(transp ~ trialT + (1|subj), data=ds)
-summary(m)
-anova(m)
-summary(lm(transp ~ trialT, data=ds))
+summary(glmer(transp ~ trialT + (1|subj), data=ds, family='binomial'))
 bfBase <- lmBF(transp ~ subj, data=ds, whichRandom = 'subj')
 bfSz <- lmBF(transp ~ trialT + subj, data=ds, whichRandom='subj')
 as.vector(bfSz / bfBase)
@@ -327,9 +316,10 @@ as.vector(bfT / bfBase)
 
 # Combined plot (Fig.5)
 ```{r, fig.height=2.1, fig.width=7}
-if(out){jpeg('mc_ct-t_fig5.jpg', width=7, height=2.1, units='in', res=600)}
-vp <- grid::viewport(x=.757, y=.4, width=.17, height=.35)
-grid.arrange(pResp+theme(legend.position='none'), pSz, ncol=2, widths=c(2.21/5,2.79/5))
-print(pInsetCs, vp=vp)
+if(out){jpeg('f5_t.jpg', width=7, height=2.1, units='in', res=600)}
+c3 <- .423
+grid.arrange(pResp + theme(legend.position='none') + ggtitle('a'),
+             pCs + theme(legend.position='none') + ggtitle('b'),
+             pSz + ggtitle('c'), ncol=3, widths=c((1-c3)/2,(1-c3)/2,c3))
 if(out){dev.off()}
 ```

@@ -46,10 +46,22 @@ allDirs <- dir(condDir)
 ```
 
 ## Plot variables
+```{r}
+dodge <- position_dodge(width=0)
+alpha <- .8
+cc <- c('#a6cee3','#1f78b4','#b2df8a','#33a02c','#fb9a99','#e31a1c','#fdbf6f')
+xLab <- expression(paste('Stimulus Size (', degree, ')', sep=''))
+xVar <- 'stimSzDeg'
+yLab <- 'Proportion of Trials'
+yLabSz <- 'Center/Stimulus Size'
+yLabCS <- 'Proportion Center-Surround'
+colLab <- 'Response\nType'
+colLab2 <- 'Response Type' # for use in indiv plots where col label is along the bottom
+```
+
+## Plot functions
 ```{r, message=FALSE, warning=FALSE}
 # theme for plotting:
-dodge <- position_dodge(width=0)
-alpha <- .7
 themefy <- function(p) {
     p <- p + theme_bw() + 
          theme(panel.grid.minor.x=element_blank(), panel.grid.minor.y=element_blank(),
@@ -59,7 +71,66 @@ themefy <- function(p) {
             legend.background = element_rect(fill='transparent'),
             plot.title=element_text(face='bold'))
 }
-cc <- c('#a6cee3','#1f78b4','#b2df8a','#33a02c','#fb9a99','#e31a1c','#fdbf6f')
+plotAve <- function(pss, subjStr='subj', xStr=xVar, grpStr='resp', 
+                    xlab, ylab=yLab, collab=colLab, yStr='mn', seStr='se'){
+    pss$yMin <- pss[,yStr] - pss[,seStr]
+    pss$yMax <- pss[,yStr] + pss[,seStr]
+    p <- ggplot(pss, aes_string(x=xStr, y=yStr, colour=grpStr, group=grpStr,
+                            ymin='yMin', ymax='yMax')) +
+        geom_point(position=dodge, size=1, alpha=alpha) + geom_line(position=dodge, alpha=alpha) +
+        scale_x_continuous(breaks=c(3,3.7,4.3,5,5.7,6.4))+
+        geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
+        labs(x=xlab, y=ylab, colour=collab) +  ylim(0,1) + 
+        guides(colour=guide_legend(keyheight=.3, default.unit='inch'))
+    p <- themefy(p)
+}
+plotIndiv <- function(pss, subjStr='subj', xStr=xVar, grpStr='resp', 
+                    xlab, ylab=yLab, collab=colLab2, yStr='mn', seStr='se'){
+    pss$yMin <- pss[,yStr] - pss[,seStr]
+    pss$yMax <- pss[,yStr] + pss[,seStr]
+    p <- ggplot(pss, aes_string(x=xStr, y=yStr, colour=grpStr, group=grpStr,
+                            ymin='yMin', ymax='yMax')) + 
+        facet_grid(paste('.~factor(', subjStr, ')', sep='')) +
+        geom_point(position=dodge, size=1, alpha=alpha) + geom_line(position=dodge, alpha=alpha) +
+        geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
+        scale_x_continuous(breaks=c(3,3.7,4.3,5,5.7,6.4), labels=c('3','','','','','6.4'), limits=c(3,6.4))+
+        scale_y_continuous(breaks=c(0,.25,.5,.75,1), labels=c('0','','0.5','','1'), limits=c(0,1)) +
+        labs(x=xlab, y=ylab, colour=collab) + 
+        guides(colour=guide_legend(keyheight=.3, default.unit='inch'))
+    p <- themefy(p)
+}
+```
+
+## Summary functions
+```{r}
+# computes individual and group means and SDs; req's y to be the var of interest
+sumFn <- function(ss, subjStr='subj', xStr=xVar, grpStr='resp'){
+    sumSubj <- ddply(ss, c(subjStr, xStr, grpStr), summarise,
+                     mnS=mean(y), se=sd(y)/sqrt(length(y))) #, .drop=F)
+    # sumSubj$mnS[is.na(sumSubj$mnS)] <- 0
+    sumGrp <- ddply(sumSubj, c(xStr, grpStr), summarise,
+                  mn=mean(mnS), se=sd(mnS)/sqrt(length(mnS)))
+    sumGrp$subj <- 'average'
+    sumSubj <- rename(sumSubj, c(mnS='mn'))
+    sumComb <- rbind(sumGrp, sumSubj)
+    sumComb$se[is.na(sumComb$se)] <- 0
+    sumComb
+}
+# computes the proportion of different levels of 'grpStr' -- here, response types
+sumPFn <- function(ss, subjStr='subj', xStr=xVar, grpStr='resp'){
+    sumSubj <- ddply(ss, c(subjStr, xStr, grpStr), summarise, nm = length(subj), .drop=F)
+    sumGrp <- ddply(sumSubj, c(subjStr, xStr), summarise, tot=sum(nm))
+    sumSubj <- merge(sumSubj, sumGrp, by=c(subjStr,xStr))
+    sumSubj$pSubj <- with(sumSubj, nm/tot)
+    sumGrp <- ddply(sumSubj, c(xStr, grpStr), summarise,
+                  mn=mean(pSubj), se=sd(pSubj)/sqrt(length(subj)))
+    sumSubj <- rename(sumSubj, c(pSubj='mn'))
+    sumSubj$se <- 0
+    sumGrp$subj <- 'average'
+    sumComb <- rbind(sumGrp, sumSubj[,c(subjStr,xStr,grpStr,'mn','se')])
+    sumComb$se[is.na(sumComb$se)] <- 0
+    sumComb
+}
 ```
 
 ## Loading the data
@@ -100,17 +171,17 @@ head(ds)
 
 # Types of responses
 ```{r}
-# noDir, fastDir, slowDir, transparent
-ds$slow <- 0
-ds$slow[ds$nf270==1] <- 1
-ds$fast <- 0
-ds$fast[ds$nf180==1] <- 1
+# noDir, dynaDir, statDir, transparent
+ds$stat <- 0
+ds$stat[ds$nf270==1] <- 1
+ds$dyna <- 0
+ds$dyna[ds$nf180==1] <- 1
 ds$patchy <- 0
 ds$patchy[ds$nf090==1] <- 1
 ds$transp <- 0
 ds$transp[ds$nf000==1] <- 1
-ds$resp[ds$slow==1] <- 'static'
-ds$resp[ds$fast==1] <- 'dynamic'
+ds$resp[ds$stat==1] <- 'static'
+ds$resp[ds$dyna==1] <- 'dynamic'
 ds$resp[ds$patchy==1] <- 'patchy'
 ds$resp[ds$transp==1] <- 'transp'
 ds$resp <- factor(ds$resp, levels = c('static','dynamic','patchy','transparent'))
@@ -118,207 +189,77 @@ head(ds)
 ```
 
 ```{r}
-respSubj <- ddply(ds, .(subj, stimSzDeg, resp), summarise, numSubjResp = length(subj))
-resp <- ddply(respSubj, .(stimSzDeg, subj), summarise, totResp = sum(numSubjResp))
-respSubj <- merge(respSubj, resp, by=c('subj','stimSzDeg'))
-respSubj$pSubjResp <- with(respSubj, numSubjResp/totResp)
-resp <- ddply(respSubj, .(stimSzDeg, resp), summarise,
-                  pResp = mean(pSubjResp), seResp=sd(pSubjResp)/sqrt(length(subj)))
-resp$stimSzDeg <- as.factor(resp$stimSzDeg)
-head(resp)
+sumSs <- sumPFn(ds)
+sumSsAve <- sumSs[sumSs$subj=='average',]
+pResp <- plotAve(pss=sumSsAve, xlab=xLab)
+pRespIndiv <- plotIndiv(pss=sumSs[sumSs$subj!='average',], xlab=xLab)
+ddply(sumSsAve, .(resp), summarize, respMean=round(mean(mn),2), respSD=round(sd(mn),2))
 ```
 
-```{r, fig.height=3, fig.width=5}
-p <- ggplot(resp, aes(x=stimSzDeg, y=pResp, colour=resp, group=resp,
-                        ymin=pResp-seResp, ymax=pResp+seResp)) +
-    geom_point(position=dodge, size=1, alpha=alpha) +
-    geom_line(position=dodge, alpha=alpha) +
-    geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
-    labs(x=expression(paste('Stimulus Size (', degree, ')', sep='')),
-         y='Proportion of Trials', colour='Response\nType') + ylim(0,1) +
-    guides(colour=guide_legend(keyheight=.3, default.unit='inch'))
-p <- themefy(p)
-pRespType <- p + ggtitle('a') + theme(legend.position='none')
-# if(!out){plot(p)}else{png('mc_ct-sz_resp.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
-```
-
+## stat dom ~ stim size
 ```{r}
-m <- lmer(slow ~ stimSzDeg + (1|subj), data=ds)
-summary(m)
-anova(m)
-summary(lm(slow ~ stimSzDeg, data=ds))
-bfBase <- lmBF(slow ~ subj, data=ds, whichRandom = 'subj')
-bfSz <- lmBF(slow ~ stimSzDeg + subj, data=ds, whichRandom='subj')
+summary(glmer(stat ~ stimSzDeg + (1|subj), data=ds, family='binomial'))
+bfBase <- lmBF(stat ~ subj, data=ds, whichRandom = 'subj')
+bfSz <- lmBF(stat ~ stimSzDeg + subj, data=ds, whichRandom='subj')
 as.vector(bfSz / bfBase)
 ```
 
-## Individual data
-```{r, fig.height=2.1, fig.width=7}
-p <- ggplot(respSubj, aes(x=stimSzDeg, y=pSubjResp, colour=resp, group=resp)) +
-    facet_grid(. ~ subj) +
-    geom_point(position=dodge, size=1, alpha=alpha) +
-    geom_line(position=dodge, alpha=alpha) +
-    # geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
-    labs(x=expression(paste('Stimulus Size (', degree, ')', sep='')),
-         y='Proportion of Trials', colour='Response\nType') + ylim(0,1) +
-    guides(colour=guide_legend(keyheight=.3, default.unit='inch'))
-p <- themefy(p)
-if(!out){plot(p)}else{png('mc_ct-sz_resp_indiv.png', width=7, height=2.1, units='in', res=600); plot(p); dev.off()}
+## patchy dom ~ stim size
+```{r}
+summary(glmer(patchy ~ stimSzDeg + (1|subj), data=ds, family='binomial'))
+bfBase <- lmBF(patchy ~ subj, data=ds, whichRandom = 'subj')
+bfSz <- lmBF(patchy ~ stimSzDeg + subj, data=ds, whichRandom='subj')
+as.vector(bfSz / bfBase)
 ```
 
 # Center size
 
 ## Center size (p)
 ```{r}
-sumRingSzPSubj <- ddply(ds, .(subj, stimSzDeg, resp), summarise,
-                       ringSzPSubj = mean(ringSzP))
-sumRingSzP <- ddply(sumRingSzPSubj, .(resp, stimSzDeg), summarise,
-                  ringSzP = mean(ringSzPSubj), 
-                  ringSzPSe = sd(ringSzPSubj)/sqrt(length(subj)))
-sumRingSzP$stimSzDeg <- as.factor(sumRingSzP$stimSzDeg)
-head(sumRingSzP)
+ss <- ds
+ss$y <- ss$ringSzP
+sumSs <- sumFn(ss)
+sumSsAve <- sumSs[sumSs$subj=='average',]
+pSz <- plotAve(pss=sumSsAve, xlab=xLab, ylab=yLabSz)
+pIndivSz <- plotIndiv(pss=sumSs[sumSs$subj!='average',], xlab=xLab, ylab=yLabSz)
+ddply(sumSsAve, .(resp), summarize, respMean=round(mean(mn),2), respSD=round(sd(mn),2))
 ```
 
-```{r, fig.height=3, fig.width=5}
-p <- ggplot(sumRingSzP, aes(x=stimSzDeg, y=ringSzP, colour=resp, group=resp,
-                        ymin=ringSzP-ringSzPSe, ymax=ringSzP+ringSzPSe)) +
-    geom_point(position=dodge, size=1, alpha=alpha) +
-    geom_line(position=dodge, alpha=alpha) +
-    geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
-    labs(x=expression(paste('Stimulus Size (', degree, ')', sep='')),
-         y='Center/Stimulus Size', colour='Response\nType') + ylim(0,1) +
-    guides(colour=guide_legend(keyheight=.3, default.unit='inch'))
-p <- themefy(p)
-pCentSzP <- p + ggtitle('b')
-# if(!out){plot(p)}else{png('mc_ct-sz_ringSz.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
-```
-
-<!--
-```{r, fig.height=3, fig.width=5}
-p <- ggplot(sumRingSzP[sumRingSzP$resp=='static',], 
-            aes(x=stimSzDeg, y=ringSzP, colour=resp, group=resp,
-                        ymin=ringSzP-ringSzPSe, ymax=ringSzP+ringSzPSe)) +
-    geom_point(position=dodge, size=1, alpha=alpha) +
-    geom_line(position=dodge, alpha=alpha) +
-    geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
-    labs(x=expression(paste('Stimulus Size (', degree, ')', sep='')),
-         y='Center Size (P)',
-         colour='Response\nType') + ylim(0,1) +
-    guides(colour=guide_legend(keyheight=.3, default.unit='inch'))
-p <- themefy(p)
-if(!out){plot(p)}else{png('mc_ct-sz_ringSz-statOnly.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
-```
---->
-
-### Individual data
-```{r, fig.height=2.1, fig.width=7}
-p <- ggplot(sumRingSzPSubj, aes(x=stimSzDeg, y=ringSzPSubj, colour=resp, group=resp)) +
-    facet_grid(. ~ subj) +
-    geom_point(position=dodge, size=1, alpha=alpha) +
-    geom_line(position=dodge, alpha=alpha) +
-    labs(x=expression(paste('Stimulus Size (', degree, ')', sep='')),
-         y='Center Size (P)', colour='Response\nType') + ylim(0,1) +
-    guides(colour=guide_legend(keyheight=.3, default.unit='inch'))
-p <- themefy(p)
-if(!out){plot(p)}else{png('mc_ct-sz_szP_indiv.png', width=7, height=2.1, units='in', res=600); plot(p); dev.off()}
-# if(out){png('mc_ct-sz_szP_indiv_lowres.png', width=7, height=2.1, units='in', res=150); plot(p); dev.off()}
-```
-
+### BF analyses
 ```{r}
-m <- lmer(ringSzP ~ stimSzDeg + (1|subj), data=ds)
-summary(m)
-anova(m)
+summary(lmer(ringSzP ~ stimSzDeg + (1|subj), data=ds))
 summary(lm(ringSzP ~ stimSzDeg, data=ds))
 bfBase <- lmBF(ringSzP ~ subj, data=ds, whichRandom = 'subj')
 bfSz <- lmBF(ringSzP ~ stimSzDeg + subj, data=ds, whichRandom='subj')
 as.vector(bfSz / bfBase)
 ```
 
-## Center size (deg)
+# Proportion center/surround
 ```{r}
-sumRingSzSubj <- ddply(ds, .(subj, stimSzDeg, resp), summarise,
-                       ringSzSubj = mean(ringSzDeg))
-sumRingSz <- ddply(sumRingSzSubj, .(resp, stimSzDeg), summarise,
-                  ringSz = mean(ringSzSubj), 
-                  ringSzSe = sd(ringSzSubj)/sqrt(length(subj)))
-sumRingSz$stimSzDeg <- as.factor(sumRingSz$stimSzDeg)
-#sumRingSz$ringSz <- as.factor(sumRingSz$ringSz)
-head(sumRingSz)
+ss <- ds
+ss$y <- ss$ring
+sumSs <- sumFn(ss)
+sumSsAve <- sumSs[sumSs$subj=='average',]
+pCs <- plotAve(pss=sumSsAve, xlab=xLab, ylab=yLabCS)
+pIndivCs <- plotIndiv(pss=sumSs[sumSs$subj!='average',], xlab=xLab, ylab=yLabCS)
+ddply(sumSsAve, .(resp), summarize, respMean=round(mean(mn),2), respSD=round(sd(mn),2))
 ```
 
-<!--
-```{r, fig.height=3, fig.width=5}
-p <- ggplot(sumRingSz[sumRingSz$resp=='static',], 
-            aes(x=stimSzDeg, y=ringSz, colour=resp, group=resp,
-                        ymin=ringSz-ringSzSe, ymax=ringSz+ringSzSe)) +
-    geom_point(position=dodge, size=1, alpha=alpha) +
-    geom_line(position=dodge, alpha=alpha) +
-    geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
-    labs(x=expression(paste('Stimulus Size (', degree, ')', sep='')),
-         y=expression(paste('Center Size (', degree, ')', sep='')),
-         colour='Response\nType') + #ylim(0,1) +
-    guides(colour=guide_legend(keyheight=.3, default.unit='inch'))
-p <- themefy(p)
-if(!out){plot(p)}else{png('mc_ct-sz_ringSzDeg-statOnly.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
-```
---->
-
-# Proportion center/surround (inset)
+## BF analyses
 ```{r}
-sumRingPSubj <- ddply(ds, .(subj, stimSzDeg, resp), summarise,
-                       ringPSubj = mean(ring))
-sumRingP <- ddply(sumRingPSubj, .(resp, stimSzDeg), summarise,
-                  ringP = mean(ringPSubj), 
-                  ringPSe = sd(ringPSubj)/sqrt(length(subj)))
-sumRingP$stimSzDeg <- as.factor(sumRingP$stimSzDeg)
-head(sumRingP)
+ss <- ds[ds$stat==1,]
+summary(glmer(ring ~ stimSzDeg + (1|subj), data=ss, family='binomial'))
+bfBase <- lmBF(ring ~ subj, data=ss, whichRandom = 'subj')
+bfSz <- lmBF(ring ~ stimSzDeg + subj, data=ss, whichRandom='subj')
+as.vector(bfSz / bfBase)
 ```
 
-```{r, fig.height=3, fig.width=5}
-p <- ggplot(sumRingP, aes(x=stimSzDeg, y=ringP, colour=resp, group=resp,
-                        ymin=ringP-ringPSe, ymax=ringP+ringPSe)) +
-    geom_point(position=dodge, size=.5, alpha=alpha, show.legend = F) +
-    geom_line(position=dodge, alpha=alpha, show.legend = F) +
-    geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
-    scale_y_continuous(breaks=c(0,.5,1), limits=c(0,1)) + 
-    theme_bw() + theme(panel.grid.minor.x=element_blank(), 
-                       panel.grid.minor.y=element_blank(),
-        axis.text.x = element_blank(), axis.title=element_blank(),
-        legend.text = element_blank(), legend.title=element_blank(),
-        legend.key = element_blank(), plot.background=element_rect(fill='grey'),
-        axis.text.y = element_text(size=6))
-pCSpIn <- p
-# if(!out){plot(p)}else{png('mc_ct-sz_ringP_inset.png', width=.8, height=.6, units='in', res=600); plot(p); dev.off()}
-```
-
-```{r, fig.height=3, fig.width=5}
-p <- ggplot(sumRingP, aes(x=stimSzDeg, y=ringP, colour=resp, group=resp,
-                        ymin=ringP-ringPSe, ymax=ringP+ringPSe)) +
-    geom_point(position=dodge, size=1, alpha=alpha) +
-    geom_line(position=dodge, alpha=alpha) +
-    geom_linerange(position=dodge, show.legend=F, alpha=alpha) +
-    labs(x=expression(paste('Stimulus Size (', degree, ')', sep='')),
-         y='Static Center/Dynamic Surround       ', colour='Response\nType') +
-    guides(colour=guide_legend(keyheight=.3, default.unit='inch')) + ylim(0,1)
-p <- themefy(p)
-# if(!out){plot(p)}else{png('mc_ct-sz_ringP.png', width=3.2, height=1.9, units='in', res=600); plot(p); dev.off()}
-```
-
-# Combined plot (Fig.3)
-```{r, fig.height=2.1, fig.width=7}
-if(out){jpeg('mc_ct-v_fig3.jpg', width=7, height=2.1, units='in', res=600)}
-vp <- grid::viewport(x=.78, y=.405, width=.17, height=.35)
-grid.arrange(pRespType, pCentSzP, ncol=2, widths=c(2.21/5,2.79/5))
-print(pCSpIn, vp=vp)
+# Combined plot
+```{r, fig.height=4.2, fig.width=7}
+if(out){jpeg('mc_ct-sz.jpg', width=7, height=3.8, units='in', res=600)}
+grid.arrange(pResp + theme(legend.position='none') + ggtitle('a'), 
+             pCs + theme(legend.position='none') + ggtitle('b'), 
+             pSz + theme(legend.position='none') + ggtitle('c'), 
+             pRespIndiv + ggtitle('d'), layout_matrix=rbind(c(1,2,3),c(4,4,4)))
 if(out){dev.off()}
 ```
-
-<!--
-# Analyses
-```{r}
-# Analysis
-#library(lme4)
-#library(lmerTest)
-source(paste(db, 'Prog/R/myFunctions/pvalfn.R', sep=''))
-```
---->

@@ -205,10 +205,7 @@ ddply(sumSsAve, .(resp), summarize, respMean=round(mean(mn),2), respSD=round(sd(
 
 ### stat dom ~ static delay
 ```{r}
-m <- lmer(stat ~ tDelayStat + (1|subj), data=ss)
-summary(m)
-anova(m)
-summary(lm(stat ~ tDelayStat, data=ss))
+summary(glmer(stat ~ tDelayStat + (1|subj), data=ss, family='binomial'))
 bfBase <- lmBF(stat ~ subj, data=ss, whichRandom = 'subj')
 bfSz <- lmBF(stat ~ tDelayStat + subj, data=ss, whichRandom='subj')
 as.vector(bfSz / bfBase)
@@ -216,21 +213,15 @@ as.vector(bfSz / bfBase)
 
 ### dyna dom ~ static delay
 ```{r}
-m <- lmer(dyna ~ tDelayStat + (1|subj), data=ss)
-summary(m)
-anova(m)
-summary(lm(dyna ~ tDelayStat, data=ss))
+summary(glmer(dyna ~ tDelayStat + (1|subj), data=ss, family='binomial'))
 bfBase <- lmBF(dyna ~ subj, data=ss, whichRandom = 'subj')
 bfSz <- lmBF(dyna ~ tDelayStat + subj, data=ss, whichRandom='subj')
 as.vector(bfSz / bfBase)
 ```
 
-### patchy dom ~ patchy delay
+### patchy dom ~ static delay
 ```{r}
-m <- lmer(patchy ~ tDelayStat + (1|subj), data=ss)
-summary(m)
-anova(m)
-summary(lm(patchy ~ tDelayStat, data=ss))
+summary(glmer(patchy ~ tDelayStat + (1|subj), data=ss, family='binomial'))
 bfBase <- lmBF(patchy ~ subj, data=ss, whichRandom = 'subj')
 bfSz <- lmBF(patchy ~ tDelayStat + subj, data=ss, whichRandom='subj')
 as.vector(bfSz / bfBase)
@@ -248,10 +239,7 @@ ddply(sumSsAve, .(resp), summarize, respMean=round(mean(mn),2), respSD=round(sd(
 
 ### stat dom ~ dynamic delay
 ```{r}
-m <- lmer(stat ~ tDelayDyna + (1|subj), data=ss)
-summary(m)
-anova(m)
-summary(lm(stat ~ tDelayDyna, data=ss))
+summary(glmer(stat ~ tDelayDyna + (1|subj), data=ss, family='binomial'))
 bfBase <- lmBF(stat ~ subj, data=ss, whichRandom = 'subj')
 bfSz <- lmBF(stat ~ tDelayDyna + subj, data=ss, whichRandom='subj')
 as.vector(bfSz / bfBase)
@@ -259,10 +247,7 @@ as.vector(bfSz / bfBase)
 
 ### dyna dom ~ dynamic delay
 ```{r}
-m <- lmer(dyna ~ tDelayDyna + (1|subj), data=ss)
-summary(m)
-anova(m)
-summary(lm(dyna ~ tDelayDyna, data=ss))
+summary(glmer(dyna ~ tDelayDyna + (1|subj), data=ss, family='binomial'))
 bfBase <- lmBF(dyna ~ subj, data=ss, whichRandom = 'subj')
 bfSz <- lmBF(dyna ~ tDelayDyna + subj, data=ss, whichRandom='subj')
 as.vector(bfSz / bfBase)
@@ -270,10 +255,7 @@ as.vector(bfSz / bfBase)
 
 ### patchy dom ~ dynamic delay
 ```{r}
-m <- lmer(patchy ~ tDelayDyna + (1|subj), data=ss)
-summary(m)
-anova(m)
-summary(lm(patchy ~ tDelayDyna, data=ss))
+summary(glmer(patchy ~ tDelayDyna + (1|subj), data=ss, family='binomial'))
 bfBase <- lmBF(patchy ~ subj, data=ss, whichRandom = 'subj')
 bfSz <- lmBF(patchy ~ tDelayDyna + subj, data=ss, whichRandom='subj')
 as.vector(bfSz / bfBase)
@@ -377,8 +359,7 @@ ddply(sumSsAve, .(resp), summarize, respMean=round(mean(mn),2), respSD=round(sd(
 ### center/surround ~ static delay
 ```{r}
 ss <- ss[ss$resp=='static',]
-summary(lmer(ring ~ tDelayStat + (1|subj), data=ss))
-summary(lm(ring ~ tDelayStat, data=ss))
+summary(glmer(ring ~ tDelayStat + (1|subj), data=ss, family='binomial'))
 bfBase <- lmBF(ring ~ subj, data=ss, whichRandom = 'subj')
 bfSz <- lmBF(ring ~ tDelayStat + subj, data=ss, whichRandom='subj')
 as.vector(bfSz / bfBase)
@@ -398,8 +379,7 @@ ddply(sumSsAve, .(resp), summarize, respMean=round(mean(mn),2), respSD=round(sd(
 ### center/surround ~ dynamic delay
 ```{r}
 ss <- ss[ss$resp=='static',]
-summary(lmer(ring ~ tDelayDyna + (1|subj), data=ss))
-summary(lm(ring ~ tDelayDyna, data=ss))
+summary(glmer(ring ~ tDelayDyna + (1|subj), data=ss, family='binomial'))
 bfBase <- lmBF(ring ~ subj, data=ss, whichRandom = 'subj')
 bfSz <- lmBF(ring ~ tDelayDyna + subj, data=ss, whichRandom='subj')
 as.vector(bfSz / bfBase)
