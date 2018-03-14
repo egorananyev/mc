@@ -21,7 +21,7 @@ code.r{
 ## Loading the packages and data directories
 ```{r set-options, message=F}
 options(width=108)
-out=F
+out=T
 # The list of subjects, the order of conditions, and the thresholds are derived from Subjects.xlsx
 library(xlsx)
 library(ggplot2)
@@ -92,6 +92,9 @@ ds$vR = round(ds$vR*60/35,1)
 ds$vL = round(ds$vL*60/35,1)
 ds$vR[ds$vR>=1] = round(ds$vR[ds$vR>=1])
 ds$vL[ds$vL>=1] = round(ds$vL[ds$vL>=1])
+# [2018-01-16] Excluding equal velocity trials
+ds <- ds[!(ds$vL==ds$vR),]
+rownames(ds)=NULL
 head(ds)
 ```
 
@@ -951,10 +954,11 @@ if(out){dev.off()}
 
 ## Fig2: Slow & Center-Surround Trials
 ```{r, fig.height=2.1, fig.width=7}
+w <- .51
 if(out){jpeg('mc_ct-v_fig2.jpg', width=7, height=2.1, units='in', res=600)}
-vp <- grid::viewport(x=.3135, y=.373, width=.12, height=.3)
-vp2 <- grid::viewport(x=.835, y=.373, width=.11, height=.3)
-grid.arrange(p2dSlow, pCS, ncol=2, widths=c(2.5/5,2.5/5))
+vp <- grid::viewport(x=.323, y=.373, width=.12, height=.3)
+vp2 <- grid::viewport(x=.83, y=.373, width=.12, height=.3)
+grid.arrange(p2dSlow, pCS, ncol=2, widths=c((5*w)/5,(5*(1-w))/5))
 print(pSlowIn, vp=vp)
 print(pCSIn, vp=vp2)
 if(out){dev.off()}
