@@ -15,9 +15,9 @@ import os, shutil, itertools  # handy system and path functions
 import MotionClouds as mc
 
 #Initiating the keyboard
-from psychopy.iohub import launchHubServer
-io = launchHubServer()
-kb_device = io.devices.keyboard
+#from psychopy.iohub import launchHubServer
+#io = launchHubServer()
+#kb_device = io.devices.keyboard
 
 # Ensure that relative paths start from the same directory as this script
 _thisDir = os.path.dirname(os.path.abspath(__file__))
@@ -25,7 +25,9 @@ _thisDir = os.path.dirname(os.path.abspath(__file__))
 # ====================================================================================
 ## Initial variables.
 et = 0
-expName = 'mcEcc_ct-tXbv'
+#expName = 'mcvct'
+#expName = 'mcEcc_ct-szXbv'
+#expName = 'mcEcc_ct-szXbv'
 # Window circles (specified in degrees of visual angles [dva]):
 #winSz = 7.2 # 5.03; calculated as 5/x=sqrt(2)/2 => x=10/sqrt(2)
 winOffX = 4.25 # 6 # 5.62
@@ -155,16 +157,16 @@ if et:
 
 # ====================================================================================
 # Store info about the experiment session
-expInfo = {u'session': u'', u'participant': u'', u'sat': 0}
-dlg = gui.DlgFromDict(dictionary=expInfo, title=expName) # dialogue box
+expInfo = {u'expName': 'mcEcc_ct-', u'session': u'', u'participant': u'', u'sat': 0}
+dlg = gui.DlgFromDict(dictionary=expInfo, title='mc1') # dialogue box
 if dlg.OK == False: core.quit()  # user pressed cancel
 timeNow = datetime.now()
 expInfo['time'] = datetime.now().strftime('%Y-%m-%d_%H%M')
-expInfo['expName'] = expName
+expName = expInfo['expName']
 sat = expInfo['sat'] # saturation for color 'red'
 
 # Setup the Window
-win = visual.Window(size=dr, fullscr=True, screen=0, allowGUI=False, 
+win = visual.Window(size=dr, fullscr=False, screen=1, allowGUI=False, 
       allowStencil=False, color='grey', blendMode='avg', useFBO=True, units='pix')
 # store frame rate of monitor if we can measure it successfully:
 frameRate=win.getActualFrameRate()
@@ -286,10 +288,10 @@ qntxtR = visual.TextStim(win=win,
                          color='white')
 # feedback ring (for ct):
 ringL = visual.Polygon(win, edges=36, size=[winSz, winSz], ori=0, 
-                       pos=posCentL, lineWidth=winThickness, lineColor='red',
+                       pos=posCentL, lineWidth=winThickness*3, lineColor='red',
                        opacity=.1, interpolate=True)
 ringR = visual.Polygon(win, edges=36, size=[winSz, winSz], ori=0, 
-                       pos=posCentR, lineWidth=winThickness, lineColor='red',
+                       pos=posCentR, lineWidth=winThickness*3, lineColor='red',
                        opacity=.1, interpolate=True)
 # pause text:
 pauseTextL = visual.TextStim(win, text='Press Spacebar to continue', font='Cambria',
@@ -488,6 +490,13 @@ for thisTrial in trials:
     sfR = thisTrial['sfR']
     BvL = thisTrial['BvL']
     BvR = thisTrial['BvR']
+    if expName == 'mcEcc_ct-cXbv':
+        cL = float(thisTrial['cL'])
+        cR = float(thisTrial['cR'])
+        print 'cL=' + str(cL) + '; cR=' + str(cR)
+    else:
+        cL = 1
+        cR = 1
     if BvL == 'NA': BvL = .5 # default value
     if BvR == 'NA': BvR = .5
     BsfL = thisTrial['BsfL']
@@ -711,11 +720,13 @@ for thisTrial in trials:
                 stimL = visual.GratingStim(win, tex=grtL[:,:,frameN%nFrames], 
                     size=(grtSize,grtSize), pos=[-winOffX+dg2px(offX), winOffY+dg2px(offY)], 
                     interpolate=False, mask=curMaskL, ori=90+dirL)
+                stimL.contrast = cL
                 stimL.draw()
             if t > tOffR and not szRelR == 0:
                 stimR = visual.GratingStim(win, tex=grtR[:,:,frameN%nFrames], 
                     size=(grtSize,grtSize), pos=[winOffX+dg2px(offX), winOffY+dg2px(offY)], 
                     interpolate=False, mask=curMaskR, ori=90+dirR)
+                stimR.contrast = cR
                 stimR.draw()
             # Drawing the color masks:
             if not colorL == colorR: # same colors mean no color mask
@@ -735,7 +746,7 @@ for thisTrial in trials:
             # keyboard checking is just starting
             key_arrow.clock.reset()  # now t=0
             event.clearEvents(eventType='keyboard')
-            kb_device.clearEvents()
+            #kb_device.clearEvents()
         # registering the response continuously:
         if key_arrow.status == STARTED and trialT > 5 and t < trialT:
             thesePresses = kb_device.getPresses(keys=['left','right','up','down'])
@@ -905,7 +916,7 @@ for thisTrial in trials:
                                 'dirL': dirL, 'dirR': dirR,
                                 'vL': vL, 'vR': vR, 'szL': szL, 'szR': szR,
                                 'sfL': sfL, 'sfR': sfR, 'BvL': BvL, 'BvR': BvR,
-                                'BsfL': BsfL, 'BsfR': BsfR,
+                                'BsfL': BsfL, 'BsfR': BsfR, 'cL': cL, 'cR': cR,
                                 'colorL': str(colorL), 'colorR': str(colorR), 'sat': sat,
                                 'fovGap': fovGap, 'fovFade': fovFade,
                                 'periGap': periGap, 'periFade': periFade,
@@ -921,7 +932,7 @@ for thisTrial in trials:
                 # to preserve the column order:
                 dataCols = ['expName', 'time', 'participant', 'session', 'trialN', 'dirL', 'dirR',
                             'vL', 'vR', 'szL', 'szR', 'sfL', 'sfR', 'tfL', 'tfR', 'BvL', 'BvR',
-                            'BsfL', 'BsfR', 'colorL', 'colorR', 'sat', 'fovGap', 'fovFade', 
+                            'BsfL', 'BsfR', 'cL', 'cR', 'colorL', 'colorR', 'sat', 'fovGap', 'fovFade', 
                             'periGap', 'periFade', 'szRelL', 'szRelR', 'offX', 'offY', 'tOffL', 'tOffR',
                             'trialT', 'nFrames', 'nNa', 'nf000', 'nf090', 'nf180', 'nf270', 
                             'pd000', 'pd090', 'pd180', 'pd270', 'qnResp', 'ringSz']
