@@ -555,10 +555,11 @@ for thisTrial in trials:
     # If central task, the ring size is set to twice the periGap (the actual stim size):
     if centTask:
         if expName == 'mcEcc_ct-szRelXbv':
-            ringSz = int(np.max([periGap*szRelL*2,periGap*szRelR*2]))
+            #ringSz = int(np.max([periGap*szRelL*2,periGap*szRelR*2]))
+            ringSz = int(np.max([256*szRelL,256*szRelR]))
             print 'szRelL=' + str(periGap*szRelL*2) + '; szRelR=' + str(periGap*szRelR*2)
         else:
-            ringSz = int(periGap*2) # gets overwritten later if changed
+            ringSz = 256 # int(periGap*2) # gets overwritten later if changed
         if expName == 'mcEcc_ct-szXv' or expName == 'mcEcc_ct-szXbv':
             print 'stimSz=' + str(ringSz)
         ringL.setSize([ringSz,ringSz])
@@ -847,11 +848,11 @@ for thisTrial in trials:
                 ringR.setAutoDraw(True)
                 szRelMax = np.max([szRelL,szRelR])
                 if 'z' in theseKeys:
-                    ringL = ringSzFn(ringL, periGap*szRelMax, 1) # increase the ring size
-                    ringR = ringSzFn(ringR, periGap*szRelMax, 1)
+                    ringL = ringSzFn(ringL, 256*szRelMax/2, 1) # increase the ring size
+                    ringR = ringSzFn(ringR, 256*szRelMax/2, 1)
                 elif 'x' in theseKeys:
-                    ringL = ringSzFn(ringL, periGap*szRelMax, -1) # decrease the ring size
-                    ringR = ringSzFn(ringR, periGap*szRelMax, -1)
+                    ringL = ringSzFn(ringL, 256*szRelMax/2, -1) # decrease the ring size
+                    ringR = ringSzFn(ringR, 256*szRelMax/2, -1)
                 elif 'c' in theseKeys:
                     ringL.setAutoDraw(False)
                     ringR.setAutoDraw(False)

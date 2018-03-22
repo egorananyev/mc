@@ -37,7 +37,7 @@ db <- '/Users/Egor/Dropbox/' # Windows
 # db <- '~/Dropbox/' # on Mac
 # settings variables:
 expt <- 'mcvct'
-subjs <- c(0:3)
+subjs <- c(0:3, 8, 10)
 sesss <- c(1:3)
 # Read in the data directories:
 dataDir <- paste(db, 'Projects/mc/data/', sep='')
